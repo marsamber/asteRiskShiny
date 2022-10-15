@@ -28,8 +28,12 @@ ui <- fluidPage(# Application title
     # Show a plot of the generated distribution
     mainPanel(tabsetPanel(
       type = "tabs",
-      tabPanel("First method", plotOutput("mapOutput")),
-      tabPanel("Second method (HPOP)", p("A implementar"))
+      tabPanel("Primer método", plotOutput("mapOutput")),
+      tabPanel(
+        "Segundo método (HPOP)",
+        p("Esta acción llevará unos minutos"),
+        plotOutput("hpopOutput")
+      )
     ))
   ))
 
@@ -56,7 +60,32 @@ server <- function(input, output) {
     selectInput("satelite2", p("rojo"), choices = getSatelites())
   })
   
-  geodeticMatrix <- function(sat) {
+  getGeodeticMatrix <-
+    function(results_position_matrix,
+             results_velocity_matrix,
+             sat,
+             targetTimes) {
+      # Let us now convert the previously calculated set of TEME coordinates to
+      # geodetic latitude and longitude
+      geodetic_matrix <-
+        matrix(nrow = nrow(results_position_matrix),
+               ncol = 3)
+      
+      for (i in 1:nrow(geodetic_matrix)) {
+        new_dateTime <-
+          as.character(as.POSIXct(sat$dateTime, tz = "UTC") + 60 *
+                         targetTimes[i])
+        new_geodetic <-
+          TEMEtoLATLON(results_position_matrix[i, 1:3] * 1000, new_dateTime)
+        geodetic_matrix[i,] <- new_geodetic
+      }
+      
+      colnames(geodetic_matrix) <-
+        c("latitude", "longitude", "altitude")
+      return(geodetic_matrix)
+    }
+  
+  calculateResults <- function(sat) {
     targetTimes <- seq(0, 720, by = 10)
     
     results_position_matrix <-
@@ -78,8 +107,8 @@ server <- function(input, output) {
           initialDateTime = sat$dateTime,
           targetTime = targetTimes[i]
         )
-      results_position_matrix[i, ] <- new_result[[1]]
-      results_velocity_matrix[i, ] <- new_result[[2]]
+      results_position_matrix[i,] <- new_result[[1]]
+      results_velocity_matrix[i,] <- new_result[[2]]
     }
     last_sat_propagation <- new_result
     results_position_matrix = cbind(results_position_matrix, targetTimes)
@@ -91,28 +120,14 @@ server <- function(input, output) {
                  last_sat_propagation$velocity,
                  new_dateTime)
     
-    # Let us now convert the previously calculated set of TEME coordinates to
-    # geodetic latitude and longitude
-    
-    geodetic_matrix <-
-      matrix(nrow = nrow(results_position_matrix),
-             ncol = 3)
-    
-    for (i in 1:nrow(geodetic_matrix)) {
-      new_dateTime <-
-        as.character(as.POSIXct(sat$dateTime, tz = "UTC") + 60 *
-                       targetTimes[i])
-      new_geodetic <-
-        TEMEtoLATLON(results_position_matrix[i, 1:3] * 1000, new_dateTime)
-      geodetic_matrix[i, ] <- new_geodetic
-    }
-    
-    colnames(geodetic_matrix) <-
-      c("latitude", "longitude", "altitude")
-    return(geodetic_matrix)
+    return(list(
+      results_position_matrix,
+      results_velocity_matrix,
+      targetTimes
+    ))
   }
   
-  calculateGeodeticsMatrix <- function() {
+  calculateGeodeticMatrix <- function() {
     req(input$satelite)
     req(input$satelite2)
     
@@ -120,11 +135,32 @@ server <- function(input, output) {
       readTLE(paste0(path.package("asteRisk"), "/testTLE.txt"))
     sat <- test_TLEs[[strtoi(input$satelite)]]
     sat2 <- test_TLEs[[strtoi(input$satelite2)]]
-    return(list(geodeticMatrix(sat), geodeticMatrix(sat2)))
+    
+    results_position_matrix <- calculateResults(sat)[[1]]
+    results_velocity_matrix <- calculateResults(sat)[[2]]
+    targetTimes <- calculateResults(sat)[[3]]
+    results_position_matrix2 <- calculateResults(sat2)[[1]]
+    results_velocity_matrix2 <- calculateResults(sat2)[[2]]
+    targetTimes2 <- calculateResults(sat2)[[3]]
+    
+    return(list(
+      getGeodeticMatrix(
+        results_position_matrix,
+        results_velocity_matrix,
+        sat,
+        targetTimes
+      ),
+      getGeodeticMatrix(
+        results_position_matrix2,
+        results_velocity_matrix2,
+        sat2,
+        targetTimes2
+      )
+    ))
   }
   
   output$mapOutput <- renderPlot({
-    geodetics_matrix <- calculateGeodeticsMatrix()
+    geodetics_matrix <- calculateGeodeticMatrix()
     geoMatrix <- geodetics_matrix[1]
     geoMatrix2 <- geodetics_matrix[2]
     ggmap(get_map(c(
@@ -167,6 +203,131 @@ server <- function(input, output) {
       size = 0.3,
       alpha = 0.8
     )
+  })
+  
+  calculateGeodeticMatrixHpop <-
+    function(sat,
+             results_position_matrix,
+             results_velocity_matrix) {
+      satMass <- 1600
+      satCrossSection <- 15
+      satCd <- 2.2
+      satCr <- 1.2
+      
+      GCRF_coordinates <-
+        TEMEtoGCRF(results_position_matrix[1, 1:3] * 1000,
+                   results_velocity_matrix[1,
+                                           1:3] * 1000,
+                   sat$dateTime)
+      
+      initialPosition <- GCRF_coordinates$position
+      initialVelocity <- GCRF_coordinates$velocity
+      
+      # Let´s use the HPOP to calculate the position each 2 minutes during a period
+      # of 3 hours
+      
+      targetTimes <- seq(0, 10800, by = 120)
+      
+      hpop_results <-
+        hpop(
+          initialPosition,
+          initialVelocity,
+          sat$dateTime,
+          targetTimes,
+          satMass,
+          satCrossSection,
+          satCrossSection,
+          satCr,
+          satCd
+        )
+      
+      # Now we can calculate and plot the corresponding geodetic coordinates
+      
+      geodetic_matrix_hpop <-
+        matrix(nrow = nrow(hpop_results), ncol = 3)
+      
+      for (i in 1:nrow(geodetic_matrix_hpop)) {
+        new_dateTime <-
+          as.character(as.POSIXct(sat$dateTime, tz = "UTC") + targetTimes[i])
+        new_geodetic <-
+          GCRFtoLATLON(as.numeric(hpop_results[i, 2:4]), new_dateTime)
+        geodetic_matrix_hpop[i, ] <- new_geodetic
+      }
+      
+      colnames(geodetic_matrix_hpop) <-
+        c("latitude", "longitude", "altitude")
+      
+      return(geodetic_matrix_hpop)
+    }
+  
+  getGeodeticsMatrixHpop <- function() {
+    req(input$satelite)
+    req(input$satelite2)
+    
+    test_TLEs <-
+      readTLE(paste0(path.package("asteRisk"), "/testTLE.txt"))
+    sat <- test_TLEs[[strtoi(input$satelite)]]
+    sat2 <- test_TLEs[[strtoi(input$satelite2)]]
+    
+    results_position_matrix <- calculateResults(sat)[[1]]
+    results_velocity_matrix <- calculateResults(sat)[[2]]
+    results_position_matrix2 <- calculateResults(sat2)[[1]]
+    results_velocity_matrix2 <- calculateResults(sat2)[[2]]
+    
+    geodetics_matrix_hpop <-
+      calculateGeodeticMatrixHpop(sat, results_position_matrix, results_velocity_matrix)
+    geodetics_matrix_hpop2 <-
+      calculateGeodeticMatrixHpop(sat2, results_position_matrix2, results_velocity_matrix2)
+    
+    return(list(geodetics_matrix_hpop, geodetics_matrix_hpop2))
+  }
+  
+  output$hpopOutput <- renderPlot({
+    geodeticsMatrixHpop <- getGeodeticsMatrixHpop()
+    gMatrixHpop <- geodeticsMatrixHpop[1]
+    gMatrixHpop2 <- geodeticsMatrixHpop[2]
+    
+    ggmap(get_map(c(
+      left = -180,
+      right = 180,
+      bottom = -80,
+      top = 80
+    ))) + geom_segment(
+      data = as.data.frame(gMatrixHpop),
+      aes(
+        x = longitude,
+        y = latitude,
+        xend = c(tail(longitude, n = -1), NA),
+        yend = c(tail(latitude,
+                      n = -1), NA)
+      ),
+      na.rm = TRUE,
+      color = "blue"
+    ) + geom_point(
+      data = as.data.frame(gMatrixHpop),
+      aes(x = longitude, y = latitude),
+      color = "blue",
+      size = 0.3,
+      alpha = 0.8
+    ) + geom_segment(
+      data = as.data.frame(gMatrixHpop2),
+      aes(
+        x = longitude,
+        y = latitude,
+        xend = c(tail(longitude, n = -1), NA),
+        yend = c(tail(latitude,
+                      n = -1), NA)
+      ),
+      na.rm = TRUE,
+      color = "red"
+    ) + geom_point(
+      data = as.data.frame(gMatrixHpop2),
+      aes(x = longitude, y = latitude),
+      color = "red",
+      size = 0.3,
+      alpha = 0.8
+    )
+    
   })
   
 }
