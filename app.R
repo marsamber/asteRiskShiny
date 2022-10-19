@@ -9,9 +9,9 @@
 
 library(shiny)
 library(ggmap)
-library(googleway)
 library(asteRisk)
 library(asteRiskData)
+library(shinycssloaders)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(# Application title
@@ -28,18 +28,39 @@ ui <- fluidPage(# Application title
     # Show a plot of the generated distribution
     mainPanel(tabsetPanel(
       type = "tabs",
+      tags$head(tags$style(type="text/css",
+                                      paste0("
+                                             #loadmessage {
+                                             position: fixed;
+                                             top: 0px;
+                                             left: 0px;
+                                             width: 100%;
+                                             padding: 5px 0px 5px 0px;
+                                             text-align: center;
+                                             font-weight: bold;
+                                             font-size: 100%;
+                                             color: '#ffffff';
+                                             background-color: '#B2DAE9';
+                                             z-index: 105;
+                                             }"))),
+                 conditionalPanel(condition="$('html').hasClass('shiny-busy')",
+                                  tags$div("Estamos cargando tu mapa, ¡no nos olvidamos de ti! :)",id="loadmessage")),
       tabPanel("Primer método", plotOutput("mapOutput")),
       tabPanel(
         "Segundo método (HPOP)",
-        p("Esta acción llevará unos minutos"),
+        shinycssloaders::withSpinner(
         plotOutput("hpopOutput")
-      )
-    ))
+        )
+    )
+      ),
+    )
   ))
 
 # Define server logic required to draw a histogram
 
 server <- function(input, output) {
+
+
   getSatelites <- function() {
     test_TLEs <-
       readTLE(paste0(path.package("asteRisk"), "/testTLE.txt"))
@@ -178,7 +199,8 @@ server <- function(input, output) {
                       n = -1), NA)
       ),
       na.rm = TRUE,
-      color = 'blue'
+      color = 'blue',
+      arrow = arrow(length = unit(0.2, "cm"))
     ) + geom_point(
       data = as.data.frame(geoMatrix),
       aes(x = longitude, y = latitude),
@@ -195,7 +217,8 @@ server <- function(input, output) {
                       n = -1), NA)
       ),
       na.rm = TRUE,
-      color = "red"
+      color = "red",
+      arrow = arrow(length = unit(0.2, "cm"))
     ) + geom_point(
       data = as.data.frame(geoMatrix2),
       aes(x = longitude, y = latitude),
@@ -302,7 +325,8 @@ server <- function(input, output) {
                       n = -1), NA)
       ),
       na.rm = TRUE,
-      color = "blue"
+      color = "blue",
+      arrow = arrow(length = unit(0.2, "cm"))
     ) + geom_point(
       data = as.data.frame(gMatrixHpop),
       aes(x = longitude, y = latitude),
@@ -319,7 +343,8 @@ server <- function(input, output) {
                       n = -1), NA)
       ),
       na.rm = TRUE,
-      color = "red"
+      color = "red",
+      arrow = arrow(length = unit(0.2, "cm"))
     ) + geom_point(
       data = as.data.frame(gMatrixHpop2),
       aes(x = longitude, y = latitude),
