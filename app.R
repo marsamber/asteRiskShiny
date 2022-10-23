@@ -12,24 +12,38 @@ library(ggmap)
 library(asteRisk)
 library(asteRiskData)
 library(shinycssloaders)
+library(leaflet)
+library(htmltools)
+library(shinyTime)
 
-# Define UI for application that draws a histogram
-ui <- fluidPage(# Application title
-  titlePanel("AsteRisk"),
-  
-  # Sidebar with a slider input for number of bins
-  sidebarLayout(
-    sidebarPanel(
-      h3("Elige dos satélites para mostrar:"),
-      uiOutput("select_satelite"),
-      uiOutput("select_satelite2"),
-    ),
-    
-    # Show a plot of the generated distribution
-    mainPanel(tabsetPanel(
-      type = "tabs",
-      tags$head(tags$style(type="text/css",
-                                      paste0("
+ui <-
+  fluidPage(titlePanel("AsteRisk - Visualiza la órbita de los satélites"),
+            fluidPage(tabsetPanel(
+              type = "tabs",
+              tabPanel(
+                "Home",
+                p(
+                  "Mediante esta app, puedes visualizar la órbita de los satélites, puedes observar la de los que tenemos guardados en nuestra base de datos, o meter a mano los datos de tu satélite favorito y ver por dónde pasará."
+                )
+              ),
+              tabPanel(
+                "Visualiza satélites ya guardados",
+                sidebarLayout(
+                  sidebarPanel(
+                    h3("Elige dos satélites para mostrar:"),
+                    uiOutput("select_satelite"),
+                    uiOutput("select_satelite2"),
+                  ),
+                  
+                  
+                  # Show a plot of the generated distribution
+                  mainPanel(
+                    tabsetPanel(
+                      type = "tabs",
+                      tags$head(tags$style(
+                        type = "text/css",
+                        paste0(
+                          "
                                              #loadmessage {
                                              position: fixed;
                                              top: 0px;
@@ -42,25 +56,186 @@ ui <- fluidPage(# Application title
                                              color: '#ffffff';
                                              background-color: '#B2DAE9';
                                              z-index: 105;
-                                             }"))),
-                 conditionalPanel(condition="$('html').hasClass('shiny-busy')",
-                                  tags$div("Estamos cargando tu mapa, ¡no nos olvidamos de ti! :)",id="loadmessage")),
-      tabPanel("Primer método", plotOutput("mapOutput")),
-      tabPanel(
-        "Segundo método (HPOP)",
-        shinycssloaders::withSpinner(
-        plotOutput("hpopOutput")
-        )
-    )
-      ),
-    )
-  ))
+                                             }"
+                        )
+                      )),
+                      conditionalPanel(
+                        condition = "$('html').hasClass('shiny-busy')",
+                        tags$div("Estamos cargando tu mapa, ¡no nos olvidamos de ti! :)", id =
+                                   "loadmessage")
+                      ),
+                      tabPanel("Pruebas", leafletOutput("myMap")),
+                      tabPanel("Primer método", plotOutput("mapOutput")),
+                      tabPanel(
+                        "Segundo método (HPOP)",
+                        shinycssloaders::withSpinner(plotOutput("hpopOutput"))
+                      )
+                    ),
+                  )
+                )
+              ),
+              tabPanel(
+                "Visualiza tus propios satélites",
+                sidebarLayout(
+                  sidebarPanel(
+                    width = 6,
+                    h4("Inserta los datos del satélite aquí:"),
+                    fluidRow(
+                      column(3, textInput(
+                        "NORADCatalogNumber", p("NORADCatalogNumber"), value =
+                          "00005"
+                      )),
+                      column(3,
+                             textInput(
+                               "classificationLevel", p("classificationLevel"), value =
+                                 "unclassified"
+                             )),
+                      column(
+                        3,
+                        textInput(
+                          "internationalDesignator",
+                          p("internationalDesignator"),
+                          value = "2058-002B"
+                        )
+                      ),
+                      column(3, numericInput("launchYear", p("launchYear"), value = "2000"))
+                    ),
+                    fluidRow(
+                      column(3, textInput(
+                        "launchNumber", p("launchNumber"), value = "002"
+                      )),
+                      column(3, textInput("launchPiece", p("launchPiece"), value = "B")),
+                      column(3, dateInput("date", p("date"), value = "2000-06-27")),
+                      column(3, timeInput("time", p("time"), value = "18:50:19.7335679990829")),
+                    ),
+                    fluidRow(
+                      column(3, numericInput(
+                        "elementNumber", p("elementNumber"), value =
+                          "475"
+                      )),
+                      column(3, numericInput("inclination", p("inclination"), value = "34.3")),
+                      column(3, numericInput("ascension", p("ascension"), value = "349")),
+                      column(3, numericInput(
+                        "eccentricity", p("eccentricity"), value =
+                          "0.186"
+                      )),
+                    ),
+                    fluidRow(
+                      column(3, numericInput(
+                        "perigeeArgument", p("perigeeArgument"), value =
+                          "332"
+                      )),
+                      column(3, numericInput("meanAnomaly", p("meanAnomaly"), value = "19.3")),
+                      column(3, numericInput("meanMotion", p("meanMotion"), value = "10.8")),
+                      column(3, numericInput(
+                        "meanMotionDerivative", p("meanMotionDerivative"), value =
+                          "4.6e-07"
+                      )),
+                    ),
+                    fluidRow(
+                      column(3, numericInput(
+                        "meanMotionSecondDerivative",
+                        p("meanMotionSecondDerivative"),
+                        value = "0"
+                      )),
+                      column(3, numericInput("Bstar", p("Bstar"), value = "2.81e-05")),
+                      column(
+                        3,
+                        textInput("ephemerisType", p("ephemerisType"), value = "Distributed data (SGP4/SDP4)")
+                      ),
+                      column(3, numericInput(
+                        "epochRevolutionNumber", p("epochRevolutionNumber"), value =
+                          "41366"
+                      ))
+                    ),
+                    
+                    
+                    
+                    
+                    
+                    
+                    textInput("objectName", p("objectName"), value = "TEME example"),
+                  ),
+                  mainPanel("")
+                ),
+              )
+              
+            )))
 
 # Define server logic required to draw a histogram
 
 server <- function(input, output) {
-
-
+  output$myMap <- renderLeaflet({
+    geodetics_matrix <- calculateGeodeticMatrix()
+    geoMatrix <- geodetics_matrix[1]
+    geoMatrix2 <- geodetics_matrix[2]
+    
+    geoMarkers = as.data.frame(geoMatrix[[1]])
+    geoMarkers = cbind(
+      geoMarkers,
+      PopUp = paste(
+        "Longitud:",
+        geoMarkers[, 1],
+        "Latitud:",
+        geoMarkers[, 2],
+        "Altitud:",
+        geoMarkers[, 3]
+      )
+    )
+    geoPolylines = as.data.frame(geoMarkers)[c("longitude", "latitude")]
+    geoPolylines = matrix(unlist(geoPolylines), ncol = 2)
+    
+    geoMarkers2 = as.data.frame(geoMatrix2[[1]])
+    geoMarkers2 = cbind(
+      geoMarkers2,
+      PopUp = paste(
+        "Longitud:",
+        geoMarkers[, 1],
+        "Latitud:",
+        geoMarkers[, 2],
+        "Altitud:",
+        geoMarkers[, 3]
+      )
+    )
+    geoPolylines2 = as.data.frame(geoMarkers2)[c("longitude", "latitude")]
+    geoPolylines2 = matrix(unlist(geoPolylines2), ncol = 2)
+    
+    awesomeBlue <- makeAwesomeIcon(
+      icon = "star",
+      iconColor = "#FFFFFF",
+      markerColor = "blue",
+      library = "fa",
+      
+    )
+    awesomeRed <- makeAwesomeIcon(
+      icon = "star",
+      iconColor = "#FFFFFF",
+      markerColor = "red",
+      library = "fa"
+    )
+    
+    leaflet() %>%
+      setView(0, 0, 0.5) %>%
+      addTiles() %>%
+      addAwesomeMarkers(
+        data = geoMarkers,
+        ~ longitude,
+        ~ latitude,
+        label =  ~ htmlEscape(PopUp),
+        icon = awesomeBlue
+      ) %>%
+      addPolylines(data = geoPolylines, color = "blue") %>%
+      addAwesomeMarkers(
+        data = geoMarkers2,
+        ~ longitude,
+        ~ latitude,
+        label =  ~ htmlEscape(PopUp),
+        icon = awesomeRed
+      ) %>%
+      addPolylines(data = geoPolylines2, color = "red")
+  })
+  
+  
   getSatelites <- function() {
     test_TLEs <-
       readTLE(paste0(path.package("asteRisk"), "/testTLE.txt"))
