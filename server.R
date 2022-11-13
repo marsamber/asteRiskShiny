@@ -42,49 +42,37 @@ server <- function(input, output) {
   })
   
   output$myMap <- renderLeaflet({
-    req(input$NORADCatalogNumber)
-    req(input$classificationLevel)
-    req(input$internationalDesignator)
-    req(input$launchYear)
-    req(input$launchNumber)
-    req(input$launchPiece)
     req(input$date)
     req(input$time)
-    req(input$elementNumber)
     req(input$inclination)
     req(input$ascension)
     req(input$eccentricity)
     req(input$perigeeArgument)
     req(input$meanAnomaly)
     req(input$meanMotion)
-    req(input$meanMotionDerivative)
-    req(input$meanMotionSecondDerivative)
     req(input$Bstar)
-    req(input$ephemerisType)
-    req(input$epochRevolutionNumber)
-    req(input$objectName)
     
     sat = list(
-      NORADCatalogNumber = input$NORADCatalogNumber,
-      classificationLevel = input$classificationLevel,
-      internationalDesignator = input$internationalDesignator,
-      launchYear = input$launchYear,
-      launchNumber = input$launchNumber,
-      launchPiece = input$launchPiece,
+      NORADCatalogNumber = "0005",
+      classificationLevel = "unclassified",
+      internationalDesignator = "2058-002B",
+      launchYear = 2058,
+      launchNumber = "002",
+      launchPiece = "B",
       dateTime = paste(input$date, substring(input$time, 12, 20), sep= " "),
-      elementNumber = input$elementNumber,
+      elementNumber = 475,
       inclination = input$inclination,
       ascension = input$ascension,
       eccentricity = input$eccentricity,
       perigeeArgument = input$perigeeArgument,
       meanAnomaly = input$meanAnomaly,
       meanMotion = input$meanMotion,
-      meanMotionDerivative = input$meanMotionDerivative,
-      meanMotionSecondDerivative = input$meanMotionSecondDerivative,
+      meanMotionDerivative = 4.6e-07,
+      meanMotionSecondDerivative = 0,
       Bstar = input$Bstar,
-      ephemerisType = input$ephemerisType,
-      epochRevolutionNumber = input$epochRevolutionNumber,
-      objectName = input$objectName
+      ephemerisType = "Distributed data (SGP4/SDP4)",
+      epochRevolutionNumber = 41366,
+      objectName = "Example"
     )
     
     geodetics_matrix <- calculateGeodeticMatrix(sat)

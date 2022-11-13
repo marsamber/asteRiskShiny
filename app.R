@@ -1,5 +1,4 @@
 library(shiny)
-library(ggmap)
 library(asteRisk)
 library(asteRiskData)
 library(shinycssloaders)

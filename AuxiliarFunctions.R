@@ -3,7 +3,7 @@ getSatelites <- function() {
     readTLE(paste0(path.package("asteRisk"), "/testTLE.txt"))
   lista <- list()
   for (i in 1:length(test_TLEs[])) {
-    key <- test_TLEs[[i]]$objectName
+    key <- test_TLEs[[i]]$NORADcatalogNumber
     value <- i
     lista[[key]] <- value
   }
