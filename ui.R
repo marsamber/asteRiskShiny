@@ -3,7 +3,8 @@ source('MapsTabPanel.R')
 source('SimulatorTabPanel.R')
 
 ui <-
-  fluidPage(titlePanel("AsteRisk - Visualiza Satélites"),
+  fluidPage(tags$head(tags$link(rel="shortcut icon", href="logo.png")),
+            titlePanel("AsteRisk - Visualiza Satélites"),
             fluidPage(
               tabsetPanel(type = "tabs",
                           HomeTabPanel,

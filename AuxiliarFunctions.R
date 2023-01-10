@@ -29,7 +29,7 @@ calculateResults <- function(sat) {
           pi / 180,
         OMEGA0 = sat$ascension * pi / 180,
         Bstar = sat$Bstar,
-        initialDateTime = sat$dateTime,
+        initialDateTime = sat$initialDateTime,
         targetTime = targetTimes[i]
       )
     results_position_matrix[i, ] <- new_result[[1]]
@@ -103,9 +103,8 @@ getGeodeticMatrix <-
     
     for (i in 1:nrow(geodetic_matrix)) {
       new_dateTime <-
-        as.character(as.POSIXct(sat$dateTime, tz = "UTC") + 60 *
+        as.character(as.POSIXct(sat$initialDateTime, tz = "UTC") + 60 *
                        targetTimes[i])
-      
       new_geodetic <-
         TEMEtoLATLON(results_position_matrix[i, 1:3] * 1000, new_dateTime)
       geodetic_matrix[i, ] <- new_geodetic
@@ -192,9 +191,9 @@ calculateGeoMarkers <- function(geodetics_matrix) {
   geoMarkers <- cbind(
     geoMarkers,
     PopUp = paste(
-      "Longitud:",
-      geoMarkers[, 1],
       "Latitud:",
+      geoMarkers[, 1],
+      "Longitud:",
       geoMarkers[, 2],
       "Altitud:",
       geoMarkers[, 3]
@@ -207,12 +206,12 @@ calculateGeoMarkers <- function(geodetics_matrix) {
     geoMarkers2 <- cbind(
       geoMarkers2,
       PopUp = paste(
-        "Longitud:",
-        geoMarkers[, 1],
         "Latitud:",
-        geoMarkers[, 2],
+        geoMarkers2[, 1],
+        "Longitud:",
+        geoMarkers2[, 2],
         "Altitud:",
-        geoMarkers[, 3]
+        geoMarkers2[, 3]
       )
     )
     
@@ -240,7 +239,7 @@ calculateGeoPolylines <- function(geoMarkers) {
   
 }
 
-renderMapTwoSatellites <- function(geoMarkers, geoPolylines) {
+renderMapTwoSatellites <- function(geoMarkers, geoPolylines, dimension) {
   myTransparentIcon <-
     makeIcon(
       iconUrl = "www/transparentIcon.png",
@@ -250,9 +249,14 @@ renderMapTwoSatellites <- function(geoMarkers, geoPolylines) {
       iconAnchorY = 12
     )
   
+  zoom = 0.5
+  if (dimension[1] > 1000){
+    zoom = 2
+  }
+  
   leaflet() %>%
-    setView(0, 0, 0.5) %>%
-    addTiles() %>%
+    setView(0, 0, zoom  ) %>%
+    addTiles(options = tileOptions(noWrap = TRUE)) %>%
     addMarkers(
       data = geoMarkers[[1]],
       ~ longitude,
@@ -275,7 +279,7 @@ renderMapTwoSatellites <- function(geoMarkers, geoPolylines) {
                  weight = 3)
 }
 
-renderMapOneSatellite <- function(geoMarkers, geoPolylines) {
+renderMapOneSatellite <- function(geoMarkers, geoPolylines, dimension) {
   myTransparentIcon <-
     makeIcon(
       iconUrl = "www/transparentIcon.png",
@@ -285,9 +289,14 @@ renderMapOneSatellite <- function(geoMarkers, geoPolylines) {
       iconAnchorY = 12
     )
   
+  zoom = 0.5
+  if (dimension[1] > 1000){
+    zoom = 2
+  }
+  
   leaflet() %>%
-    setView(0, 0, 0.5) %>%
-    addTiles() %>%
+    setView(0, 0, zoom) %>%
+    addTiles(options = tileOptions(noWrap = TRUE)) %>%
     addMarkers(
       data = geoMarkers[[1]],
       ~ longitude,
