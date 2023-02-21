@@ -6,6 +6,7 @@ library(leaflet)
 library(leaflet.extras2)
 library(htmltools)
 library(shinyTime)
+library(randomcoloR)
 
 source('ui.R', local=TRUE)
 source('server.R')

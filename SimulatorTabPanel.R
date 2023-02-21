@@ -45,16 +45,16 @@ SimulatorTabPanel <- tabPanel("Simulador",
                                   br(),
                                   p("Las fechas serán consideradas en UTC", style = "color: gray;"),
                                   fluidRow(
-                                    column(6, dateInput("initialDateSimulator", p("Fecha inicial"), value = "2000-06-27")),
-                                    column(6, timeInput("initialTimeSimulator", p("Hora inicial"), value = "18:50:19.7335679990829")),
+                                    column(6, dateInput("initialDateSimulator", p("Fecha inicial"), format = "yyyy-mm-dd")),
+                                    column(6, timeInput("initialTimeSimulator", p("Hora inicial"), value = "00:00:00")),
                                   ),
                                   fluidRow(
-                                     column(6, dateInput("targetDateSimulator", p("Fecha destino"), value = "2000-06-27")),
-                                     column(6, timeInput("targetTimeSimulator", p("Hora destino"), value = "18:50:19.7335679990829")),
+                                     column(6, dateInput("targetDateSimulator", p("Fecha destino"), format = "yyyy-mm-dd")),
+                                     column(6, timeInput("targetTimeSimulator", p("Hora destino"), value = "00:00:00")),
                                   ),
                                   h3("o", align = "center"),
                                   fluidRow(
-                                    column(6, numericInput("propagationTimeSimulator", p("Tiempo de propagación (minutos)"), value = 0)),
+                                    column(6, numericInput("propagationTimeSatSimulator", p("Tiempo de propagación (minutos)"), value = 0, min = 0)),
                                   )
                                 ),
                                 mainPanel(width = 7, h4("Simulación"), leafletOutput("myMap", height = '80vh'))

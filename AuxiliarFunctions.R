@@ -10,8 +10,39 @@ getSatelites <- function() {
   return(lista)
 }
 
-calculateResults <- function(sat) {
-  targetTimes <- seq(0, 720, by = 10)
+calculateResults <- function(sat,
+                             targetDate = NULL,
+                             min = NULL) {
+  initialTime = if (!is.null(targetDate))
+    sat$initialDateTime
+  else
+    NULL
+  
+  targetTimes = NULL
+  if (!is.null(targetDate)) {
+    if (!is.null(initialTime)) {
+      diff_dates = difftime(targetDate, initialTime, units = "mins")
+      if (diff_dates > 0)
+      {
+        step = diff_dates / 200
+        targetTimesDate = seq(as.POSIXct(initialTime, tz = "UTC"),
+                              as.POSIXct(targetDate, tz = "UTC"),
+                              step)
+        for (i in 1:length(targetTimesDate)) {
+          targetTimes[i] = substr(as.character(targetTimesDate[i]), 1, 19)
+        }
+      }
+      
+    }
+  } else {
+    step = min / 200
+    targetTimes = seq(0, min, step)
+  }
+  
+  targetTime = if (!is.null(targetDate))
+    targetDate
+  else
+    min
   
   results_position_matrix <-
     matrix(nrow = length(targetTimes), ncol = 3)
@@ -19,6 +50,15 @@ calculateResults <- function(sat) {
     matrix(nrow = length(targetTimes), ncol = 3)
   
   for (i in 1:length(targetTimes)) {
+    if(is.null(targetDate))
+    {
+      print(sprintf("____________: %f", i))
+      print(sat)
+      print(initialTime)
+      print(targetTimes[i])
+      print("__________________")
+    }
+    
     new_result <-
       sgdp4(
         n0 = sat$meanMotion * ((2 * pi) / (1440)),
@@ -29,11 +69,14 @@ calculateResults <- function(sat) {
           pi / 180,
         OMEGA0 = sat$ascension * pi / 180,
         Bstar = sat$Bstar,
-        initialDateTime = sat$initialDateTime,
+        initialDateTime = initialTime,
         targetTime = targetTimes[i]
       )
-    results_position_matrix[i, ] <- new_result[[1]]
-    results_velocity_matrix[i, ] <- new_result[[2]]
+    results_position_matrix[i,] <-
+      as.numeric(new_result$position[[1]])
+    results_velocity_matrix[i,] <-
+      as.numeric(new_result$velocity[[2]])
+    
   }
   last_sat_propagation <- new_result
   results_position_matrix <-
@@ -53,15 +96,22 @@ calculateResults <- function(sat) {
   ))
 }
 
-calculateGeodeticMatrix <- function(sat, sat2 = NULL) {
-  results_position_matrix <- calculateResults(sat)[[1]]
-  results_velocity_matrix <- calculateResults(sat)[[2]]
-  targetTimes <- calculateResults(sat)[[3]]
+calculateGeodeticMatrix <- function(sat,
+                                    sat2 = NULL,
+                                    targetDate1 = NULL,
+                                    targetDate2 = NULL,
+                                    min1 = NULL,
+                                    min2 = NULL) {
+  resultsSat <- calculateResults(sat, targetDate1, min1)
+  results_position_matrix <- resultsSat[[1]]
+  results_velocity_matrix <- resultsSat[[2]]
+  targetTimes <- resultsSat[[3]]
   
   if (!is.null(sat2)) {
-    results_position_matrix2 <- calculateResults(sat2)[[1]]
-    results_velocity_matrix2 <- calculateResults(sat2)[[2]]
-    targetTimes2 <- calculateResults(sat2)[[3]]
+    resultsSat2 <- calculateResults(sat2, targetDate2, min2)
+    results_position_matrix2 <- resultsSat2[[1]]
+    results_velocity_matrix2 <- resultsSat2[[2]]
+    targetTimes2 <- resultsSat2[[3]]
     
     return(list(
       getGeodeticMatrix(
@@ -103,13 +153,16 @@ getGeodeticMatrix <-
     
     for (i in 1:nrow(geodetic_matrix)) {
       new_dateTime <-
-        as.character(as.POSIXct(sat$initialDateTime, tz = "UTC") + 60 *
-                       targetTimes[i])
+        if (typeof(targetTimes[i]) != 'character')
+          as.character(as.POSIXct(sat$initialDateTime, tz = "UTC") + 60 *
+                         targetTimes[i])
+      else
+        targetTimes[i]
+      
       new_geodetic <-
-        TEMEtoLATLON(results_position_matrix[i, 1:3] * 1000, new_dateTime)
+        TEMEtoLATLON(as.numeric(results_position_matrix[i, 1:3]) * 1000, new_dateTime)
       geodetic_matrix[i, ] <- new_geodetic
     }
-    
     colnames(geodetic_matrix) <-
       c("latitude", "longitude", "altitude")
     return(geodetic_matrix)
@@ -239,72 +292,100 @@ calculateGeoPolylines <- function(geoMarkers) {
   
 }
 
-renderMapTwoSatellites <- function(geoMarkers, geoPolylines, dimension) {
-  myTransparentIcon <-
-    makeIcon(
-      iconUrl = "www/transparentIcon.png",
-      iconWidth = 24,
-      iconHeight = 24,
-      iconAnchorX = 12,
-      iconAnchorY = 12
-    )
-  
-  zoom = 0.5
-  if (dimension[1] > 1000){
-    zoom = 2
+renderMapSatellites <-
+  function(geoMarkers,
+           geoPolylines,
+           dimension,
+           names = NULL) {
+    myTransparentIcon <-
+      makeIcon(
+        iconUrl = "www/transparentIcon.png",
+        iconWidth = 24,
+        iconHeight = 24,
+        iconAnchorX = 12,
+        iconAnchorY = 12
+      )
+    
+    zoom = 0.5
+    if (dimension[1] > 1000) {
+      zoom = 2
+    }
+    
+    map = leaflet() %>%
+      setView(0, 0, zoom) %>%
+      addTiles(options = tileOptions(noWrap = TRUE))
+    
+    colors = NULL
+    labels = NULL
+    for (i in 1:length(geoMarkers)) {
+      geoMarkersi = as.data.frame(geoMarkers[[i]])
+      geoPolylinesi = geoPolylines[[i]]
+      color = if (i %% 2 == 0)
+        randomColor(luminosity = 'dark', hue = 'orange')
+      else
+        randomColor(luminosity = 'dark', hue = 'pink')
+      if (nrow(geoMarkers[[i]]) != 1) {
+        some_rows = seq_len(nrow(geoPolylinesi)) %% 4
+        geoPolylinesiWithoutArrow = geoPolylinesi[some_rows == 1,]
+        geoPolylinesiWithArrow = geoPolylinesi[some_rows == 0,]
+        
+        map = map %>%
+          addMarkers(
+            data = geoMarkersi,
+            ~ longitude,
+            ~ latitude,
+            label = ~ htmlEscape(PopUp),
+            icon = myTransparentIcon
+          )  %>%
+          addPolylines(data = geoPolylinesiWithoutArrow,
+                       color = color,
+                       weight = 3) %>%
+          addArrowhead(data = geoPolylinesiWithArrow,
+                       color = color,
+                       weight = 3) %>%
+          addPopups(
+            as.numeric(geoMarkersi$longitude[1]),
+            as.numeric(geoMarkersi$latitude[1]),
+            if (!is.null(names))
+              names[i]
+            else
+              "Satélite",
+            options = popupOptions()
+          )
+      } else {
+        map = map %>%
+          addAwesomeMarkers(
+            data = geoMarkersi,
+            ~ longitude,
+            ~ latitude,
+            label = ~ htmlEscape(PopUp),
+            icon = makeAwesomeIcon(
+              icon = "star",
+              iconColor = color,
+              markerColor = 'white',
+              library = "fa"
+            )
+          ) %>%
+          addPolylines(data = geoPolylinesi,
+                       color = color,
+                       weight = 3)
+      }
+      
+      colors = c(colors, color)
+      labels = c(labels, if (!is.null(names))
+        names[i]
+        else
+          "Satélite")
+    }
+    
+    map = map %>%
+      addLegend(
+        "bottomright",
+        colors = colors,
+        labels = labels,
+        title = "Satélites",
+        opacity = 1
+      )
+    
+    return(map)
   }
-  
-  leaflet() %>%
-    setView(0, 0, zoom  ) %>%
-    addTiles(options = tileOptions(noWrap = TRUE)) %>%
-    addMarkers(
-      data = geoMarkers[[1]],
-      ~ longitude,
-      ~ latitude,
-      label =  ~ htmlEscape(PopUp),
-      icon = myTransparentIcon
-    ) %>%
-    addArrowhead(data = geoPolylines[[1]],
-                 color = "blue",
-                 weight = 3) %>%
-    addMarkers(
-      data = geoMarkers[[2]],
-      ~ longitude,
-      ~ latitude,
-      label = ~ htmlEscape(PopUp),
-      icon = myTransparentIcon
-    ) %>%
-    addArrowhead(data = geoPolylines[[2]],
-                 color = "red",
-                 weight = 3)
-}
-
-renderMapOneSatellite <- function(geoMarkers, geoPolylines, dimension) {
-  myTransparentIcon <-
-    makeIcon(
-      iconUrl = "www/transparentIcon.png",
-      iconWidth = 24,
-      iconHeight = 24,
-      iconAnchorX = 12,
-      iconAnchorY = 12
-    )
-  
-  zoom = 0.5
-  if (dimension[1] > 1000){
-    zoom = 2
-  }
-  
-  leaflet() %>%
-    setView(0, 0, zoom) %>%
-    addTiles(options = tileOptions(noWrap = TRUE)) %>%
-    addMarkers(
-      data = geoMarkers[[1]],
-      ~ longitude,
-      ~ latitude,
-      label =  ~ htmlEscape(PopUp),
-      icon = myTransparentIcon
-    ) %>%
-    addArrowhead(data = geoPolylines[[1]],
-                 color = "blue",
-                 weight = 3)
-}
