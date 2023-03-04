@@ -5,16 +5,15 @@ MapsTabPanel <- tabPanel("Visualiza satélites",
                              fluidRow(
                                column(
                                  6,
-                                 h3("Elige dos satélites para mostrar:"),
+                                 h3("Elige un satélite de ejemplo para probar"),
                                  uiOutput("select_satelite"),
-                                 uiOutput("select_satelite2"),
                                ),
                                column(
                                  6,
                                  h3("Sube tu propio fichero TLE:"),
                                  fileInput(
                                    "TLEFile",
-                                   "FicheroTLE",
+                                   "Fichero TLE",
                                    multiple = FALSE,
                                    accept = "text/plain",
                                    buttonLabel = "Examinar...",
@@ -27,18 +26,20 @@ MapsTabPanel <- tabPanel("Visualiza satélites",
                                    ))
                                )
                              ),
+                             br(),
+                             fluidRow(
+                               column(12, p("En esta ventana podrás subir tu fichero con tantos satélites como quieras para visualizarlos en el mapa, sin embargo, debes tener en cuenta que:"),
+                               tags$ol(tags$li("No se puede asegurar una trayectoria correcta si se propaga más de dos semanas."),
+                                       tags$li("Si los satélites son diferentes entre ellos, no se podrá propagar en minutos.")))
+                               
+                             ),
                              hr(style = "border-top: 1px solid #000000;"),
                              h4("Propagación de la trayectoria"),
                              fluidRow(
                                column(
                                  6,
-                                 p("Fecha inicial primer satélite", style = "font-weight:bold;"),
+                                 p("Fecha inicial satélite (más reciente)", style = "font-weight:bold;"),
                                  verbatimTextOutput("initialDateSat")
-                               ),
-                               column(
-                                 6,
-                                 p("Fecha inicial segundo satélite", style = "font-weight:bold;"),
-                                 verbatimTextOutput("initialDateSat2")
                                ),
                              ),
                              br(),
@@ -57,16 +58,14 @@ MapsTabPanel <- tabPanel("Visualiza satélites",
                              fluidRow(column(
                                6, dateInput("targetDateSat", p("Fecha destino"), format = "yyyy-mm-dd")
                              ),
-                             column(
-                               6, dateInput("targetDateSat2", p("Fecha destino"), format = "yyyy-mm-dd")
-                             ), ),
+                             ),
                              fluidRow(column(
                                6, timeInput("targetTimeSat", p("Hora destino"), value = "00:00:00")
                              ),
-                             column(
-                               6, timeInput("targetTimeSat2", p("Hora destino"), value = "00:00:00")
-                             ), ),
-                             h3("o", align = "center"),
+                             ),
+                             fluidRow(column(
+                               6, h3("o", align = "center")
+                             )),
                              fluidRow(column(
                                6, numericInput(
                                  "propagationTimeSat",
@@ -75,14 +74,7 @@ MapsTabPanel <- tabPanel("Visualiza satélites",
                                  min = 0
                                )
                              ),
-                             column(
-                               6, numericInput(
-                                 "propagationTimeSat2",
-                                 p("Tiempo de propagación (minutos)"),
-                                 value = 0,
-                                 min = 0
-                               )
-                             ), )
+                             )
                            ),
                            
                            

@@ -50,14 +50,6 @@ calculateResults <- function(sat,
     matrix(nrow = length(targetTimes), ncol = 3)
   
   for (i in 1:length(targetTimes)) {
-    if(is.null(targetDate))
-    {
-      print(sprintf("____________: %f", i))
-      print(sat)
-      print(initialTime)
-      print(targetTimes[i])
-      print("__________________")
-    }
     
     new_result <-
       sgdp4(
@@ -325,9 +317,18 @@ renderMapSatellites <-
       else
         randomColor(luminosity = 'dark', hue = 'pink')
       if (nrow(geoMarkers[[i]]) != 1) {
+        #flechas
         some_rows = seq_len(nrow(geoPolylinesi)) %% 4
         geoPolylinesiWithoutArrow = geoPolylinesi[some_rows == 1,]
         geoPolylinesiWithArrow = geoPolylinesi[some_rows == 0,]
+        
+        colorDegr <- colorRampPalette(c(color, "white"))
+        
+        geoPoly <- geoMarkersi %>%
+          mutate(nextLat = lead(latitude),
+                 nextLng = lead(longitude),
+                 color = colorDegr(dim(geoMarkersi)[1])
+                 )
         
         map = map %>%
           addMarkers(
@@ -336,14 +337,22 @@ renderMapSatellites <-
             ~ latitude,
             label = ~ htmlEscape(PopUp),
             icon = myTransparentIcon
-          )  %>%
-          addPolylines(data = geoPolylinesiWithoutArrow,
-                       color = color,
-                       weight = 3) %>%
-          addArrowhead(data = geoPolylinesiWithArrow,
-                       color = color,
-                       weight = 3) %>%
-          addPopups(
+          )  
+        for (j in 1:nrow(geoPoly)){
+          map = map %>%
+            addPolylines(data = geoPoly,
+                         lng = as.numeric(geoPoly[j, c('longitude', 'nextLng')]),
+                         lat = as.numeric(geoPoly[j, c('latitude', 'nextLat')]),
+                         color = as.character(geoPoly[j, c('color')]),
+                         weight = 3)
+        }
+          # %>% addPolylines(data = geoPolylinesiWithoutArrow,
+          #              color = color,
+          #              weight = 3) %>%
+          # addArrowhead(data = geoPolylinesiWithArrow,
+          #              color = color,
+          #              weight = 3) %>%
+          map = map %>% addPopups(
             as.numeric(geoMarkersi$longitude[1]),
             as.numeric(geoMarkersi$latitude[1]),
             if (!is.null(names))
