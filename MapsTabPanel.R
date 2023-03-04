@@ -123,7 +123,7 @@ MapsTabPanel <- tabPanel("Visualiza satélites",
                                                   id =
                                                     "loadmessage"
                                                 )),
-                               tabPanel("Primer método", leafletOutput("firstMap", height = '80vh')),
+                               tabPanel("Primer método", shinycssloaders::withSpinner(leafletOutput("firstMap", height = '80vh'))),
                                tabPanel(
                                  "Segundo método (HPOP)",
                                  shinycssloaders::withSpinner(leafletOutput("hpopOutput"))

@@ -11,14 +11,18 @@ server <- function(input, output, session) {
     sats <- readTLE(filename = file$datapath)
     dates = NULL
     
-    for(i in 1:length(sats)){
-      date <- sats[[i]]$dateTime
-      date = as.POSIXct(date, tz="UTC")
-      dates = c(dates, date)
+    if (is.null(names(sats))){
+      for(i in 1:length(sats)){
+        date <- sats[[i]]$dateTime
+        date = as.POSIXct(date, tz="UTC")
+        dates = c(dates, date)
+      }
+      
+      dates = sort(dates, decreasing = TRUE)
+      dateString = format(as.POSIXct(dates[1], origin="1970-01-01", tz="UTC"))
+    } else {
+      dateString = sats$dateTime
     }
-    
-    dates = sort(dates, decreasing = TRUE)
-    dateString = format(as.POSIXct(dates[1], origin="1970-01-01", tz="UTC"))
     
     return(dateString)
   }
@@ -83,13 +87,20 @@ server <- function(input, output, session) {
     
     if(!is.null(input$TLEFile)){
       file <- input$TLEFile
-      sats <- readTLE(filename = file$datapath)
+      TLESats <- readTLE(filename = file$datapath)
+      if(!is.null(names(TLESats))){
+        sats[[1]] = TLESats
+      } else {
+        sats <- TLESats 
+      }
+      for(i in 1:length(sats)){
+        sats[[i]] = c(sats[[i]], initialDateTime = sats[[i]]$dateTime)
+      }
     } else {
       sat <- test_TLEs[[strtoi(input$satelite)]]
       sat <- c(sat, initialDateTime = sat$dateTime)
       sats[[1]] = sat
     }
-    
     
     if (input$propagationTime == "datetime") {
       req(input$targetDateSat)
@@ -98,34 +109,37 @@ server <- function(input, output, session) {
       targetTimeSat <- substring(input$targetTimeSat, 12, 19)
       targetTimeSat <-
         if (targetTimeSat == '')
-          substring(sat$dateTime, 12, 19)
+          substring(sats[[1]]$dateTime, 12, 19)
       else
         targetTimeSat
       
-      initialDate1 = sat$initialDateTime
-      targetDate1 = paste(input$targetDateSat,
+      targetDate = paste(input$targetDateSat,
                           targetTimeSat,
                           sep = " ")
-      
       geodetics_matrix <-
         calculateGeodeticMatrix(
-          sat,
-          targetDate1 = targetDate1
+          sats,
+          targetDate = targetDate
         )
     } else if (input$propagationTime == "minutes") {
       req(input$propagationTimeSat)
       geodetics_matrix <-
         calculateGeodeticMatrix(
-          sat,
-          min1 = input$propagationTimeSat
+          sats,
+          min = input$propagationTimeSat
         )
     }
     
     geoMarkers <- calculateGeoMarkers(geodetics_matrix)
     geoPolylines <- calculateGeoPolylines(geoMarkers)
     
-    renderMapSatellites(geoMarkers, geoPolylines, input$dimension, list(sat$NORADcatalogNumber
-                                                                        ))
+    
+    names = NULL
+    for(i in 1:length(sats)){
+      names = c(names, sats[[i]]$NORADcatalogNumber)
+    }
+    
+    renderMapSatellites(geoMarkers, geoPolylines, input$dimension, names)
   })
   
   

@@ -50,7 +50,6 @@ calculateResults <- function(sat,
     matrix(nrow = length(targetTimes), ncol = 3)
   
   for (i in 1:length(targetTimes)) {
-    
     new_result <-
       sgdp4(
         n0 = sat$meanMotion * ((2 * pi) / (1440)),
@@ -61,7 +60,7 @@ calculateResults <- function(sat,
           pi / 180,
         OMEGA0 = sat$ascension * pi / 180,
         Bstar = sat$Bstar,
-        initialDateTime = initialTime,
+        initialDateTime = sat$initialDateTime,
         targetTime = targetTimes[i]
       )
     results_position_matrix[i,] <-
@@ -88,48 +87,28 @@ calculateResults <- function(sat,
   ))
 }
 
-calculateGeodeticMatrix <- function(sat,
-                                    sat2 = NULL,
-                                    targetDate1 = NULL,
-                                    targetDate2 = NULL,
-                                    min1 = NULL,
-                                    min2 = NULL) {
-  resultsSat <- calculateResults(sat, targetDate1, min1)
-  results_position_matrix <- resultsSat[[1]]
-  results_velocity_matrix <- resultsSat[[2]]
-  targetTimes <- resultsSat[[3]]
-  
-  if (!is.null(sat2)) {
-    resultsSat2 <- calculateResults(sat2, targetDate2, min2)
-    results_position_matrix2 <- resultsSat2[[1]]
-    results_velocity_matrix2 <- resultsSat2[[2]]
-    targetTimes2 <- resultsSat2[[3]]
+calculateGeodeticMatrix <- function(sats,
+                                    targetDate = NULL,
+                                    min = NULL) {
+  geodeticMatrixs <- list()
+  for (i in 1:length(sats))
+  {
+    resultsSat <- calculateResults(sats[[i]], targetDate, min)
+    results_position_matrix <- resultsSat[[1]]
+    results_velocity_matrix <- resultsSat[[2]]
+    targetTimes <- resultsSat[[3]]
     
-    return(list(
-      getGeodeticMatrix(
-        results_position_matrix,
-        results_velocity_matrix,
-        sat,
-        targetTimes
-      ),
-      getGeodeticMatrix(
-        results_position_matrix2,
-        results_velocity_matrix2,
-        sat2,
-        targetTimes2
-      )
-    ))
-  }
-  
-  return(list(
-    getGeodeticMatrix(
+    geodeticMatrix <- getGeodeticMatrix(
       results_position_matrix,
       results_velocity_matrix,
-      sat,
+      sats[[i]],
       targetTimes
     )
-  ))
+    
+    geodeticMatrixs[[i]] = geodeticMatrix
+  }
   
+  return(geodeticMatrixs)
 }
 
 getGeodeticMatrix <-
@@ -230,58 +209,41 @@ getGeodeticsMatrixHpop <- function(sat, sat2) {
 }
 
 calculateGeoMarkers <- function(geodetics_matrix) {
-  geoMatrix <- geodetics_matrix[1]
+  geoMarkerss = list()
   
-  geoMarkers <- as.data.frame(geoMatrix[[1]])
-  geoMarkers <- cbind(
-    geoMarkers,
-    PopUp = paste(
-      "Latitud:",
-      geoMarkers[, 1],
-      "Longitud:",
-      geoMarkers[, 2],
-      "Altitud:",
-      geoMarkers[, 3]
-    )
-  )
-  if (length(geodetics_matrix) == 2) {
-    geoMatrix2 <- geodetics_matrix[2]
+  for(i in 1:length(geodetics_matrix)){
+    geoMatrix <- geodetics_matrix[i]
     
-    geoMarkers2 <- as.data.frame(geoMatrix2[[1]])
-    geoMarkers2 <- cbind(
-      geoMarkers2,
+    geoMarkers <- as.data.frame(geoMatrix[[1]])
+    geoMarkers <- cbind(
+      geoMarkers,
       PopUp = paste(
         "Latitud:",
-        geoMarkers2[, 1],
+        geoMarkers[, 1],
         "Longitud:",
-        geoMarkers2[, 2],
+        geoMarkers[, 2],
         "Altitud:",
-        geoMarkers2[, 3]
+        geoMarkers[, 3]
       )
     )
     
-    return(list(geoMarkers, geoMarkers2))
+    geoMarkerss[[i]] <- geoMarkers
   }
   
-  return(list(geoMarkers))
-  
+  return(geoMarkerss)
 }
 
 calculateGeoPolylines <- function(geoMarkers) {
-  geoPolylines <-
-    as.data.frame(geoMarkers[1])[c("longitude", "latitude")]
-  geoPolylines <- matrix(unlist(geoPolylines), ncol = 2)
+  geoPolyliness = list()
   
-  if (length(geoMarkers) == 2) {
-    geoPolylines2 <-
-      as.data.frame(geoMarkers[2])[c("longitude", "latitude")]
-    geoPolylines2 <- matrix(unlist(geoPolylines2), ncol = 2)
+  for(i in 1:length(geoMarkers)) {
+    geoPolylines <- as.data.frame(geoMarkers[1])[c("longitude", "latitude")]
+    geoPolylines <- matrix(unlist(geoPolylines), ncol = 2)
     
-    return(list(geoPolylines, geoPolylines2))
+    geoPolyliness[[i]] <- geoPolylines
   }
   
-  return(list(geoPolylines))
-  
+  return (geoPolyliness)
 }
 
 renderMapSatellites <-
@@ -312,10 +274,16 @@ renderMapSatellites <-
     for (i in 1:length(geoMarkers)) {
       geoMarkersi = as.data.frame(geoMarkers[[i]])
       geoPolylinesi = geoPolylines[[i]]
-      color = if (i %% 2 == 0)
+      color = if (i %% 5 == 0)
         randomColor(luminosity = 'dark', hue = 'orange')
-      else
+      else if (i %% 5 == 1)
         randomColor(luminosity = 'dark', hue = 'pink')
+      else if (i %% 5 == 2)
+        randomColor(luminosity = 'dark', hue = 'blue')
+      else if (i %% 5 == 3)
+        randomColor(luminosity = 'dark', hue = 'green')
+      else if (i %% 5 == 4)
+        randomColor(luminosity = 'dark', hue = 'yellow')
       if (nrow(geoMarkers[[i]]) != 1) {
         #flechas
         some_rows = seq_len(nrow(geoPolylinesi)) %% 4
