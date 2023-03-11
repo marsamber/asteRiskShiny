@@ -1,4 +1,4 @@
-HomeTabPanel <- tabPanel(
+homeTabPanel <- tabPanel(
   "Home",
   div(img(
     src = "logo.png"
