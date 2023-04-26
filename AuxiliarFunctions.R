@@ -3,11 +3,56 @@ get_satelites <- function() {
     readTLE(paste0(path.package("asteRisk"), "/testTLE.txt"))
   lista <- list()
   for (i in seq_along(test_TLEs[])) {
-    key <- test_TLEs[[i]]$NORADcatalogNumber
+    object_name <- get_object_name(test_TLEs[[i]]$NORADcatalogNumber)
+    datetime <- get_datetime(test_TLEs[[i]]$dateTime)
+    key <- paste0(
+      object_name, " a ", datetime,
+      " (", test_TLEs[[i]]$NORADcatalogNumber, ")"
+    )
     value <- i
     lista[[key]] <- value
   }
   return(lista)
+}
+
+get_object_name <- function(NORAD_catalog_number) {
+  switch(NORAD_catalog_number,
+    "00005" = "VANGUARD 1",
+    "04632" = "TITAN 3C TRANSTAGE R/B",
+    "06251" = "DELTA 1 DEB",
+    "08195" = "MOLNIYA 2-14",
+    "09880" = "MOLNIYA 1-36",
+    "09998" = "SMS 1 AKM",
+    "11801" = "SL-12 R/B(AUX MOTOR)",
+    "14128" = "EUTELSAT 1-F1 (ECS 1)",
+    "16925" = "SL-6 R/B(2)",
+    "20413" = "SL-12 R/B",
+    "21897" = "MOLNIYA 1-83",
+    "22312" = "SL-6 R/B(2)",
+    "22674" = "SL-6 R/B(2)",
+    "23177" = "ARIANE 44L+ R/B",
+    "23333" = "WIND",
+    "23599" = "ARIANE 42P+3 R/B",
+    "24208" = "ITALSAT 2",
+    "25954" = "AMC-4 (GE-4)",
+    "26900" = "INTELSAT 902",
+    "26975" = "COSMOS 1024 DEB",
+    "28057" = "CBERS 2",
+    "28129" = "NAVSTAR 53 (USA 175)",
+    "28350" = "COSMOS 2405",
+    "28623" = "H-2 R/B",
+    "28626" = "XM-3",
+    "28872" = "MINOTAUR R/B",
+    "29141" = "SL-14 DEB",
+    "29238" = "SL-12 DEB",
+    "88888" = "Original STR"
+  )
+}
+
+get_datetime <- function(datetime) {
+  datetime <- as.POSIXct(datetime, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  datetime_format <- format(datetime, format = "%d-%m-%Y %H:%M:%S")
+  return(datetime_format)
 }
 
 calculate_results <- function(sat,
@@ -24,7 +69,11 @@ calculate_results <- function(sat,
     if (!is.null(initial_time)) {
       diff_dates <- difftime(target_date, initial_time, units = "mins")
       if (diff_dates > 0) {
-        step <- diff_dates / 200
+        num_points <- as.numeric(diff_dates) * 200 / 1440
+        if (num_points > 2000) {
+          num_points <- 2000
+        }
+        step <- diff_dates / num_points
         target_times_date <- seq(
           as.POSIXct(initial_time, tz = "UTC"),
           as.POSIXct(target_date, tz = "UTC"),
@@ -36,7 +85,13 @@ calculate_results <- function(sat,
       }
     }
   } else {
-    step <- min / 200
+    num_points <- min * 200 / 1440
+    if (num_points > 4700) {
+      num_points <- 4700
+    } else if (num_points < 1) {
+      num_points <- 1
+    }
+    step <- min / num_points
     target_times <- seq(0, min, by = step)
   }
 
@@ -59,16 +114,17 @@ calculate_results <- function(sat,
         initialDateTime = sat$initialDateTime,
         targetTime = target_times[i]
       )
-    results_position_matrix[i, ] <-
-      as.numeric(new_result$position[[1]])
-    results_velocity_matrix[i, ] <-
-      as.numeric(new_result$velocity[[2]])
+    # results_position_matrix[i, ] <-
+    #   as.numeric(new_result$position[[1]])
+    # results_velocity_matrix[i, ] <-
+    #   as.numeric(new_result$velocity[[2]])
+    results_position_matrix[i, ] <- new_result[[1]]
+    results_velocity_matrix[i, ] <- new_result[[2]]
   }
   last_sat_propagation <- new_result
   results_position_matrix <-
     cbind(results_position_matrix, target_times)
   colnames(results_position_matrix) <- c("x", "y", "z", "time")
-  new_datetime <- "2006-06-25 12:33:43"
 
   # ITRF_coordinates <-
   #   TEMEtoITRF(
@@ -85,8 +141,8 @@ calculate_results <- function(sat,
 }
 
 calculate_geodetic_matrix_and_position_two_weeks <- function(sats,
-                                      target_date = NULL,
-                                      min = NULL) {
+                                                             target_date = NULL,
+                                                             min = NULL) {
   geodetic_matrixs <- list()
   indexes_more_two_weeks <- list()
   for (i in seq_along(sats)) {
@@ -104,10 +160,16 @@ calculate_geodetic_matrix_and_position_two_weeks <- function(sats,
 
     index <- -1
     positions <- data.frame(results_position_matrix)
-    positions$time <- as.POSIXct(positions$time, tz = "UTC")
-    datetime_limit <- head(positions$time, n = 1) + 14 * 86400
-    if (any(positions$time > datetime_limit)) {
-      index <- which.max(positions$time > datetime_limit)
+    if (!is.null(target_date)) {
+      positions$time <- as.POSIXct(positions$time, tz = "UTC")
+      datetime_limit <- head(positions$time, n = 1) + 14 * 86400
+      if (any(positions$time > datetime_limit)) {
+        index <- which.max(positions$time > datetime_limit)
+      }
+    } else {
+      if (any(positions$time > 14 * 1440)) {
+        index <- which.max(positions$time > 14 * 1440)
+      }
     }
     indexes_more_two_weeks[[i]] <- index
 
@@ -153,10 +215,11 @@ get_geodetic_matrix <-
     return(geodetic_matrix)
   }
 
-calculate_geodetic_matrix_hpop <-
-  function(sat,
-           results_position_matrix,
-           results_velocity_matrix) {
+get_geodetic_matrix_hpop <-
+  function(results_position_matrix,
+           results_velocity_matrix,
+           sat,
+           target_times) {
     sat_mass <- 1600
     sat_cross_section <- 15
     sat_cd <- 2.2
@@ -164,21 +227,18 @@ calculate_geodetic_matrix_hpop <-
 
     GCRF_coordinates <-
       TEMEtoGCRF(
-        results_position_matrix[1, 1:3] * 1000,
-        results_velocity_matrix[
+        as.numeric(results_position_matrix[1, 1:3]) * 1000,
+        as.numeric(results_velocity_matrix[
           1,
           1:3
-        ] * 1000,
+        ]) * 1000,
         sat$dateTime
       )
 
     initial_position <- GCRF_coordinates$position
     initial_velocity <- GCRF_coordinates$velocity
 
-    # Let´s use the HPOP to calculate the position each 2 minutes
-    # during a period of 3 hours
-
-    target_times <- seq(0, 10800, by = 120)
+    target_times <- target_times * 60
 
     hpop_results <-
       hpop(
@@ -212,116 +272,122 @@ calculate_geodetic_matrix_hpop <-
     return(geodetic_matrix_hpop)
   }
 
-get_geodetics_matrix_hpop <- function(sat, sat2) {
-  results_position_matrix <- calculate_results(sat)[[1]]
-  results_velocity_matrix <- calculate_results(sat)[[2]]
-  results_position_matrix2 <- calculate_results(sat2)[[1]]
-  results_velocity_matrix2 <- calculate_results(sat2)[[2]]
+calculate_geodetic_matrix_and_position_two_weeks_hpop <- function(sats, min = NULL) {
+  geodetic_matrixs <- list()
+  indexes_more_two_weeks <- list()
 
-  geodetics_matrix_hpop <- calculate_geodetic_matrix_hpop(
-    sat,
-    results_position_matrix, results_velocity_matrix
-  )
-  geodetics_matrix_hpop2 <- calculate_geodetic_matrix_hpop(
-    sat2,
-    results_position_matrix2, results_velocity_matrix2
-  )
+  for (i in seq_along(sats)) {
+    results_sat <- calculate_results(sats[[i]], min = min)
+    results_position_matrix <- results_sat[[1]]
+    results_velocity_matrix <- results_sat[[2]]
+    target_times <- results_sat[[3]]
 
-  return(list(geodetics_matrix_hpop, geodetics_matrix_hpop2))
+    geodetic_matrix <- get_geodetic_matrix_hpop(
+      results_position_matrix,
+      results_velocity_matrix,
+      sats[[i]],
+      target_times
+    )
+
+    index <- -1
+    positions <- data.frame(results_position_matrix)
+    if (any(positions$time > 14 * 1440)) {
+      index <- which.max(positions$time > 14 * 1440)
+    }
+    indexes_more_two_weeks[[i]] <- index
+
+    geodetic_matrixs[[i]] <- geodetic_matrix
+  }
+
+  return(list(geodetic_matrixs, indexes_more_two_weeks))
 }
 
 calculate_geo_markers <- function(geodetics_matrix) {
-  geo_markerss <- list()
-
+  list_of_geo_markers <- list()
+  
   for (i in seq_along(geodetics_matrix)) {
     geo_matrix <- geodetics_matrix[i]
-
-    geo_markers <- as.data.frame(geo_matrix[[1]])
-    # geo_markers <- cbind(
-    #   geo_markers,
-    # PopUp = paste(
-    #   "Latitud:",
-    #   geo_markers[, 1],
-    #   "<br>Longitud:",
-    #   geo_markers[, 2],
-    #   "<br>Altitud:",
-    #   geo_markers[, 3]
-    # )
-    # )
-
-    geo_markerss[[i]] <- geo_markers
+    data_frame_geo_markers <- as.data.frame(geo_matrix[[1]])
+    list_of_geo_markers[[i]] <- data_frame_geo_markers
   }
-
-  return(geo_markerss)
+  
+  return(list_of_geo_markers)
 }
 
-calculate_geo_polylines <- function(geo_markers) {
-  geo_polyliness <- list()
 
-  for (i in seq_along(geo_markers)) {
-    geo_polylines <- as.data.frame(geo_markers[1])[c("longitude", "latitude")]
-    geo_polylines <- matrix(unlist(geo_polylines), ncol = 2)
+lighten_color <- function(hex_color) {
+  rgb_color <- col2rgb(hex_color)
+  hsb_color <- rgb2hsv(rgb_color[1], rgb_color[2], rgb_color[3])
+  hsb_color[2] <- as.numeric(hsb_color[2]) * 0.2
+  hsb_color[3] <- as.numeric(hsb_color[3]) * 3
+  hsb_color[hsb_color > 1] <- 1
+  rgb_color <- hsv2rgb(hsb_color)
+  hex_color <- rgb2hex(rgb_color)
+  return(hex_color)
+}
 
-    geo_polyliness[[i]] <- geo_polylines
+equally_spaced_lists <- function(df, z) {
+  n <- nrow(df)
+  if (n < z) {
+    return (n-1)
+  } else if ( n / z < 4) {
+    z = 10
   }
-
-  return(geo_polyliness)
+  tamaño_salto <- floor((n - 1) / (z - 1))
+  indices <- c(1, seq(from = tamaño_salto + 1, to = n - 1, by = tamaño_salto))
+  return(indices)
 }
 
 render_map_satellites <-
   function(geo_markers,
-           geo_polylines,
            dimension,
            names = NULL,
            positions_two_weeks) {
-    my_transparent_icon <-
-      makeIcon(
-        iconUrl = "www/transparentIcon.png",
-        iconWidth = 24,
-        iconHeight = 24,
-        iconAnchorX = 12,
-        iconAnchorY = 12
-      )
-
-    zoom <- 0.5
-    if (dimension[1] > 1000) {
-      zoom <- 2
-    }
-
+   
+    # Se define un icono transparente
+    my_transparent_icon <- makeIcon(
+      iconUrl = "www/transparentIcon.png",
+      iconWidth = 24,
+      iconHeight = 24,
+      iconAnchorX = 12,
+      iconAnchorY = 12
+    )
+    
+    # Se define el zoom inicial del mapa
+    zoom <- ifelse(dimension[1] > 1000, 2, 0.5)
+    
+    # Se crea el objeto del mapa
     map <- leaflet() %>%
       setView(0, 0, zoom) %>%
       addTiles(options = tileOptions(noWrap = TRUE))
-
+    
+    # Se inicializan las variables para los colores y las etiquetas
     colors <- NULL
     labels <- NULL
+    divs <- ""
 
     for (i in seq_along(geo_markers)) {
       geo_markers_i <- as.data.frame(geo_markers[[i]])
       positions_two_weeks_i <- positions_two_weeks[[i]]
-      print(positions_two_weeks_i)
-      popUps <- paste("Latitud:", geo_markers_i$latitude,
-      "<br>Longitud:", geo_markers_i$longitude,
-      "<br>Altitud:", geo_markers_i$altitude) %>% lapply(htmltools::HTML)
-      geo_polylines_i <- geo_polylines[[i]]
+      
+      popUps <- paste(
+        "Latitud:", geo_markers_i$latitude,
+        "<br>Longitud:", geo_markers_i$longitude,
+        "<br>Altitud:", geo_markers_i$altitude
+      ) %>% lapply(htmltools::HTML)
 
-      color <- if (i %% 5 == 0) {
-        randomColor(luminosity = "dark", hue = "orange")
-      } else if (i %% 5 == 1) {
-        randomColor(luminosity = "dark", hue = "pink")
-      } else if (i %% 5 == 2) {
-        randomColor(luminosity = "dark", hue = "blue")
-      } else if (i %% 5 == 3) {
-        randomColor(luminosity = "dark", hue = "green")
-      } else if (i %% 5 == 4) {
-        randomColor(luminosity = "dark", hue = "yellow")
-      }
+      # Se definen los colores de los marcadores
+      color <- switch(i %% 5 + 1,
+                      randomColor(luminosity = "dark", hue = "orange"),
+                      randomColor(luminosity = "dark", hue = "pink"),
+                      randomColor(luminosity = "dark", hue = "blue"),
+                      randomColor(luminosity = "dark", hue = "green"),
+                      randomColor(luminosity = "dark", hue = "yellow"))
+      lighten_color <- lighten_color(color)
+      
       if (nrow(geo_markers[[i]]) != 1) {
-        # flechas
-        # some_rows <- seq_len(nrow(geo_polylines_i)) %% 4
-        # geo_polylines_i_without_arrow <- geo_polylines_i[some_rows == 1, ]
-        # geo_polylines_i_with_arrow <- geo_polylines_i[some_rows == 0, ]
 
-        color_degr <- colorRampPalette(c(color, "white"))
+        color_degr <- colorRampPalette(c(color, lighten_color))
 
         geo_poly <- geo_markers_i %>%
           mutate(
@@ -329,6 +395,7 @@ render_map_satellites <-
             nextLng = lead(longitude),
             color = color_degr(dim(geo_markers_i)[1])
           )
+        indices <- equally_spaced_lists(geo_poly, 20)
 
         map <- map %>%
           addMarkers(
@@ -340,35 +407,36 @@ render_map_satellites <-
           )
 
         for (j in seq_len(nrow(geo_poly))) {
-          if (is.na(geo_poly[j, "nextLng"]) ||
-            geo_poly[j, "longitude"] < geo_poly[j, "nextLng"]) {
+          j <- as.character(j)
+          if(j %in% indices) {
             map <- map %>%
-              addPolylines(
-                data = geo_poly,
-                lng = as.numeric(geo_poly[j, c("longitude", "nextLng")]),
-                lat = as.numeric(geo_poly[j, c("latitude", "nextLat")]),
-                color = if(positions_two_weeks_i != -1 && (positions_two_weeks_i <= j) ) "black"
-                else as.character(geo_poly[j, c("color")]),
-                weight = 4
+              addArrowhead(
+                data = geo_poly[j, ],
+                lng = c(geo_poly[j, "longitude"], geo_poly[j, "nextLng"]),
+                lat = c(geo_poly[j, "latitude"], geo_poly[j, "nextLat"]),
+                color = if (positions_two_weeks_i != -1 && (positions_two_weeks_i <= j)) {
+                  "black"
+                } else {
+                  as.character(geo_poly[j, "color"])
+                },
+                weight = ifelse(geo_poly[j, "longitude"] < geo_poly[j, "nextLng"], 4, 1)
               )
           } else {
             map <- map %>%
-              addPolylines(
-                data = geo_poly,
-                lng = as.numeric(geo_poly[j, c("longitude", "nextLng")]),
-                lat = as.numeric(geo_poly[j, c("latitude", "nextLat")]),
-                color = if(positions_two_weeks_i != -1 && (positions_two_weeks_i <= j) ) "black"
-                else as.character(geo_poly[j, c("color")]),
-                weight = 1
-              )
+            addPolylines(
+              data = geo_poly[j, ],
+              lng = c(geo_poly[j, "longitude"], geo_poly[j, "nextLng"]),
+              lat = c(geo_poly[j, "latitude"], geo_poly[j, "nextLat"]),
+              color = if (positions_two_weeks_i != -1 && (positions_two_weeks_i <= j)) {
+                "black"
+              } else {
+                as.character(geo_poly[j, "color"])
+              },
+              weight = ifelse(geo_poly[j, "longitude"] < geo_poly[j, "nextLng"], 4, 1)
+            ) 
           }
         }
-        # %>% addPolylines(data = geoPolylinesiWithoutArrow,
-        #              color = color,
-        #              weight = 3) %>%
-        # addArrowhead(data = geoPolylinesiWithArrow,
-        #              color = color,
-        #              weight = 3) %>%
+        
         map <- map %>% addPopups(
           as.numeric(geo_markers_i$longitude[1]),
           as.numeric(geo_markers_i$latitude[1]),
@@ -385,37 +453,44 @@ render_map_satellites <-
             data = geo_markers_i,
             ~longitude,
             ~latitude,
-            label = ~ htmlEscape(PopUp),
+            label = popUps,
             icon = makeAwesomeIcon(
               icon = "star",
               iconColor = color,
               markerColor = "white",
               library = "fa"
             )
-          ) %>%
-          addPolylines(
-            data = geo_polylines_i,
-            color = color,
-            weight = 3
           )
       }
 
       colors <- c(colors, color)
-      labels <- c(labels, if (!is.null(names)) {
+
+      label <- if (!is.null(names)) {
         names[i]
       } else {
         "Satélite"
-      })
+      }
+      labels <- c(labels, label)
+
+      divs <- paste(divs, sprintf("<div><div style='background: linear-gradient(to right, %s, %s); width: 50px; height:20px; display:inline;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>&nbsp;&nbsp<div style='display:inline;'>%s</div></div>", color, lighten_color, label))
     }
 
+    if (any(positions_two_weeks != -1)) {
+      divs <- paste(divs, "<div><div style='background: black; width: 50px; height:20px; display:inline;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp</div>&nbsp;&nbsp<div style='display:inline;'>Más de dos semanas</div></div>")
+    }
     map <- map %>%
-      addLegend(
-        "bottomright",
-        colors = colors,
-        labels = labels,
-        title = "Satélites",
-        opacity = 1
-      )
+      addControl(html = sprintf("<div><strong>Satélites</strong>%s</div>", divs), position = "bottomright")
 
     return(map)
   }
+
+render_empty_map <- function(dimension) {
+  # Se define el zoom inicial del mapa
+  zoom <- ifelse(dimension[1] > 1000, 2, 0.5)
+
+  map <- leaflet() %>%
+    setView(0, 0, zoom) %>%
+    addTiles(options = tileOptions(noWrap = TRUE))
+
+  return(map)
+}

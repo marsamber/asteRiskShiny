@@ -2,22 +2,22 @@ simulatorTabPanel <- tabPanel(
   "Simulador",
   sidebarLayout(
     sidebarPanel(
-      h3("Inserta los datos del satélite aquí:"),
+      h4("Inserta los datos del satélite aquí:"),
       br(),
       width = 5,
       fluidRow(
         column(6, numericInput("inclination",
-          p("Inclinación media"),
+          p("Inclinación media (grados)"),
           value = "34.3"
         )),
         column(6, numericInput("ascension",
-          p("Ascensión recta media"),
+          p("Ascensión recta media (grados)"),
           value = "349"
         )),
       ),
       fluidRow(
         column(6, numericInput(
-          "eccentricity", p("Excentricidad media"),
+          "eccentricity", p("Excentricidad media (0-1)"),
           value =
             "0.186",
           min = 0,
@@ -25,24 +25,24 @@ simulatorTabPanel <- tabPanel(
           step = 0.1
         )),
         column(6, numericInput(
-          "perigeeArgument", p("Argumento del perigeo medio"),
+          "perigeeArgument", p("Argumento del perigeo medio (grados)"),
           value =
             "332"
         )),
       ),
       fluidRow(
         column(6, numericInput(
-          "meanAnomaly", p("Anomalía media"),
+          "meanAnomaly", p("Anomalía media (grados)"),
           value = "19.3"
         )),
         column(6, numericInput(
-          "meanMotion", p("Movimiento medio"),
+          "meanMotion", p("Velocidad angular media (grados/día)"),
           value = "10.8"
         )),
       ),
       fluidRow(
         column(6, numericInput("Bstar",
-          p("B*"),
+          p("B* (1/rad)"),
           value = "2.81e-05"
         )),
       ),

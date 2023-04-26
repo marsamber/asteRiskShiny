@@ -4,8 +4,9 @@ source("simulatorTabPanel.R")
 
 ui <-
   fluidPage(
-    tags$head(tags$link(rel = "shortcut icon", href = "logo.png")),
-    titlePanel("AsteRisk - Visualiza Satélites"),
+    useShinyjs(),
+    tags$head(tags$link(rel = "shortcut icon", href = "logo_asterisk.png")),
+    titlePanel("asteRisk - Interfaz gráfica para astrodinámica"),
     fluidPage(
       tabsetPanel(
         type = "tabs",
