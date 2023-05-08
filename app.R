@@ -11,7 +11,7 @@ library(dplyr)
 library(grDevices)
 library(shinyjs)
 library(colormod)
-library(future)
+library(plotly)
 
 source("ui.R", local = TRUE)
 source("server.R")

@@ -49,15 +49,20 @@ simulatorTabPanel <- tabPanel(
       hr(style = "border-top: 1px solid #000000;"),
       h4("Propagación de la trayectoria"),
       fluidRow(
-        column(12, radioButtons(
+        column(6, radioButtons(
           "propagationTimeSimulator", "Tipo de propagación:",
           c(
             "Dada una fecha y hora" = "datetime",
             "Dados unos minutos" = "minutes"
           )
-        ))
+        )),
+        column(6,
+         p("En caso de error, acude al botón que se encuentra en la página
+           principal: 'Cargar datos más recientes'",
+           style = "text-align:center; color:red;border: 1px solid black;
+           padding: 10px;")
+        )
       ),
-      br(),
       p("Las fechas serán consideradas en UTC", style = "color: gray;"),
       fluidRow(
         column(6, dateInput("initialDateSimulator",
@@ -65,8 +70,7 @@ simulatorTabPanel <- tabPanel(
           format = "yyyy-mm-dd"
         )),
         column(6, timeInput("initialTimeSimulator",
-          p("Hora inicial"),
-          value = "00:00:00"
+          p("Hora inicial")
         )),
       ),
       fluidRow(
@@ -75,16 +79,20 @@ simulatorTabPanel <- tabPanel(
           format = "yyyy-mm-dd"
         )),
         column(6, timeInput("targetTimeSimulator",
-          p("Hora destino"),
-          value = "00:00:00"
+          p("Hora destino")
         )),
       ),
       h3("o", align = "center"),
       fluidRow(
         column(6, numericInput("propagationTimeSatSimulator",
           p("Tiempo de propagación (minutos)"),
-          value = 0, min = 0
+          value = 0
         )),
+        column(
+          6, actionButton("generateSimulator", "Generar mapa"), 
+          style="display: flex; justify-content: center;"
+        ),
+        style="display: flex; align-items: center;",
       )
     ),
     mainPanel(

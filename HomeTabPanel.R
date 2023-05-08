@@ -20,6 +20,11 @@ homeTabPanel <- tabPanel(
                  al epoch. Esto proporciona una gran flexibilidad para 
                  seleccionar el momento preciso para la propagación de la 
                  trayectoria de los satélites.")),
+    column(12, p("Además de las funcionalidades mencionadas anteriormente, 
+                 asteRisk también ofrece una pestaña adicional en la que se 
+                 pueden ver gráficas de la evolución de los elementos orbitales 
+                 keplerianos de los satélites seleccionados durante la 
+                 trayectoria."))
   ),
   fluidRow(
     column(12, h4("¿Cómo funciona?")),
@@ -49,14 +54,16 @@ homeTabPanel <- tabPanel(
   fluidRow(
     column(12, h4("¿Cómo se actualizan los datos?")),
     column(12, p("Para actualizar los datos, debes pulsar el botón 'Cargar datos
-                 más recientes'.")),
-    column(12, p("Este proceso es importante para el correcto funcionamiento de 
-                 la aplicación, actualizará la posición de la Tierra, los datos 
-                 del tiempo en el espacio, los datos de las tormentas solares y 
-                 los datos de las tormentas geomagnéticas.")),
+                 más recientes'. Cuando el proceso termine, verá un mensaje de
+                 'El proceso ha terminado'")),
+    column(12, p("Este proceso es ", strong("importante")," para el correcto 
+                 funcionamiento de la aplicación, actualizará la posición de la 
+                 Tierra, los datos del tiempo en el espacio, los datos de las 
+                 tormentas solares y los datos de las tormentas geomagnéticas.")),
   ),
   fluidRow(
-    column(2, actionButton("get_latest_space_data", "Cargar datos más recientes", style=" text-align: center;
+    column(2, actionButton("get_latest_space_data", "Cargar datos más recientes",
+    style=" text-align: center;
         width: 100%;
         white-space: nowrap;
         overflow: hidden;
@@ -65,7 +72,8 @@ homeTabPanel <- tabPanel(
   ),
   fluidRow(
     column(4, verbatimTextOutput("output"), style = "text-align: center;"),
-    style = "display: flex; align-items: center; justify-content: center; margin-top:2vh; text:center"
+    style = "display: flex; align-items: center; justify-content: center; 
+    margin-top:1vh; text:center"
   ),
   br(),
   fluidRow(

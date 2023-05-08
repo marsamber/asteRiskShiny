@@ -9,6 +9,7 @@ ui <-
     titlePanel("asteRisk - Interfaz gráfica para astrodinámica"),
     fluidPage(
       tabsetPanel(
+        id = "tabs",
         type = "tabs",
         homeTabPanel,
         mapsTabPanel,
