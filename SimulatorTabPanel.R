@@ -56,11 +56,13 @@ simulatorTabPanel <- tabPanel(
             "Dados unos minutos" = "minutes"
           )
         )),
-        column(6,
-         p("En caso de error, acude al botón que se encuentra en la página
+        column(
+          6,
+          p("En caso de error, acude al botón que se encuentra en la página
            principal: 'Cargar datos más recientes'",
-           style = "text-align:center; color:red;border: 1px solid black;
-           padding: 10px;")
+            style = "text-align:center; color:red;border: 1px solid black;
+           padding: 10px;"
+          )
         )
       ),
       p("Las fechas serán consideradas en UTC", style = "color: gray;"),
@@ -69,7 +71,8 @@ simulatorTabPanel <- tabPanel(
           p("Fecha inicial"),
           format = "yyyy-mm-dd"
         )),
-        column(6, timeInput("initialTimeSimulator",
+        column(6, shinyTime::timeInput(
+          "initialTimeSimulator",
           p("Hora inicial")
         )),
       ),
@@ -78,7 +81,8 @@ simulatorTabPanel <- tabPanel(
           p("Fecha destino"),
           format = "yyyy-mm-dd"
         )),
-        column(6, timeInput("targetTimeSimulator",
+        column(6, shinyTime::timeInput(
+          "targetTimeSimulator",
           p("Hora destino")
         )),
       ),
@@ -89,15 +93,17 @@ simulatorTabPanel <- tabPanel(
           value = 0
         )),
         column(
-          6, actionButton("generateSimulator", "Generar mapa"), 
-          style="display: flex; justify-content: center;"
+          6, actionButton("generateSimulator", "Generar mapa"),
+          style = "display: flex; justify-content: center;"
         ),
-        style="display: flex; align-items: center;",
+        style = "display: flex; align-items: center;",
       )
     ),
     mainPanel(
       width = 7, h4("Simulación"),
-      shinycssloaders::withSpinner(leafletOutput("myMap", height = "80vh"))
+      shinycssloaders::withSpinner(
+        leaflet::leafletOutput("myMap", height = "80vh")
+      )
     )
   ),
 )

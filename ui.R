@@ -4,7 +4,7 @@ source("simulatorTabPanel.R")
 
 ui <-
   fluidPage(
-    useShinyjs(),
+    shinyjs::useShinyjs(),
     tags$head(tags$link(rel = "shortcut icon", href = "logo_asterisk.png")),
     titlePanel("asteRisk - Interfaz gráfica para astrodinámica"),
     fluidPage(

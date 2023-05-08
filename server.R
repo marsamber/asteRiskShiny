@@ -1,18 +1,18 @@
 source("auxiliarFunctions.R", local = TRUE)
 
 server <- function(input, output, session) {
-  proceso_en_ejecucion <- reactiveValues(estado = NULL)
+  proceso_en_ejecucion <- shiny::reactiveValues(estado = NULL)
 
-  observeEvent(input$get_latest_space_data, {
+  shiny::observeEvent(input$get_latest_space_data, {
     # Cambiar el estado a "En ejecución" cuando se hace clic en el botón
     proceso_en_ejecucion$estado <- "En ejecución"
     flush.console()
-    getLatestSpaceData()
+    asteRisk::getLatestSpaceData()
     # Cambiar el estado a "Completado" cuando el proceso ha terminado
     proceso_en_ejecucion$estado <- "Completado"
   })
 
-  output$output <- renderPrint({
+  output$output <- shiny::renderPrint({
     if (is.null(proceso_en_ejecucion$estado)) {
       "Pulsa el botón para comenzar el proceso"
     } else if (proceso_en_ejecucion$estado == "En ejecución") {
@@ -23,16 +23,16 @@ server <- function(input, output, session) {
   })
 
   test_TLEs <-
-    readTLE(paste0(path.package("asteRisk"), "/testTLE.txt"))
+    asteRisk::readTLE("www/testTLE.txt")
   idNotificationDifferents <- NULL
   idNotificationFile <- NULL
   idNotificationHPOPNeg <- NULL
 
   get_more_recent_date <- function() {
-    req(input$TLEFile)
+    shiny::req(input$TLEFile)
 
     file <- input$TLEFile
-    sats <- readTLE(filename = file$datapath)
+    sats <- asteRisk::readTLE(filename = file$datapath)
     dates <- NULL
 
     if (is.null(names(sats))) {
@@ -53,7 +53,7 @@ server <- function(input, output, session) {
     return(date_string)
   }
 
-  observe({
+  shiny::observe({
     if (!is.null(input$satelite)) {
       initial_datetime_sat <- NULL
       initial_date_sat <- NULL
@@ -61,28 +61,31 @@ server <- function(input, output, session) {
         initial_datetime_sat <- test_TLEs[[strtoi(input$satelite)]]$dateTime
         initial_date_sat <- substr(initial_datetime_sat, 1, 10)
 
-        updateDateInput(session,
+        shiny::updateDateInput(session,
           "targetDateSat",
           value = as.Date(initial_date_sat) + 1
         )
-        updateTimeInput(session, "targetTimeSat", value = Sys.time())
+        shinyTime::updateTimeInput(session, "targetTimeSat", value = Sys.time())
 
         if (!is.null(idNotificationFile)) {
-          removeNotification(idNotificationFile)
+          shiny::removeNotification(idNotificationFile)
         }
         idNotificationFile <<- NULL
       } else {
         if (!is.null(input$TLEFile)) {
           initial_datetime_sat <- get_more_recent_date()
           initial_date_sat <- substr(initial_datetime_sat, 1, 10)
-          updateDateInput(session,
+          shiny::updateDateInput(session,
             "targetDateSat",
             value = as.Date(initial_date_sat) + 1
           )
-          updateTimeInput(session, "targetTimeSat", value = Sys.time())
+          shinyTime::updateTimeInput(session,
+            "targetTimeSat",
+            value = Sys.time()
+          )
 
           if (!is.null(idNotificationFile)) {
-            removeNotification(idNotificationFile)
+            shiny::removeNotification(idNotificationFile)
           }
           idNotificationFile <<- NULL
         } else {
@@ -90,7 +93,7 @@ server <- function(input, output, session) {
             return()
           }
           idNotificationFile <<-
-            showNotification(
+            shiny::showNotification(
               paste("Debe subir un fichero
                                                         para visualizar"),
               duration = 0,
@@ -100,64 +103,110 @@ server <- function(input, output, session) {
       }
 
       if (input$metodos == "SGDP4") {
-        updateDateInput(session,
+        shiny::updateDateInput(session,
           "targetDateSat",
           min = NA
         )
-        updateNumericInput(session,
+        shiny::updateNumericInput(session,
           "propagationTimeSat",
           min = -Inf
         )
       } else if (input$metodos == "HPOP") {
-        updateDateInput(session,
+        shiny::updateDateInput(session,
           "targetDateSat",
           min = initial_date_sat
         )
-        updateNumericInput(session,
+        shiny::updateNumericInput(session,
           "propagationTimeSat",
           min = 1
         )
       }
     }
   })
-  
-  observe({
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab1", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab2", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab3", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab4", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab5", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab6", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab7", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab8", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab9", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab10", session = getDefaultReactiveDomain())
-    
-    hideTab("tabsetpanelHPOP", "HPOPTab1", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab2", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab3", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab4", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab5", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab6", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab7", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab8", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab9", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab10", session = getDefaultReactiveDomain())
-  })
-  
-  observe({
-    updateTimeInput(session, "initialTimeSimulator", value = Sys.time())
-    updateTimeInput(session, "targetTimeSimulator", value = Sys.time())
+
+  shiny::observe({
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab1",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab2",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab3",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab4",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab5",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab6",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab7",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab8",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab9",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab10",
+      session = shiny::getDefaultReactiveDomain()
+    )
+
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab1",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab2",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab3",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab4",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab5",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab6",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab7",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab8",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab9",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab10",
+      session = shiny::getDefaultReactiveDomain()
+    )
   })
 
-  output$select_satelite <- renderUI({
-    selectInput("satelite", p("Satélite"), choices = get_satelites())
+  shiny::observe({
+    shinyTime::updateTimeInput(
+      session, "initialTimeSimulator",
+      value = Sys.time()
+    )
+    shinyTime::updateTimeInput(
+      session, "targetTimeSimulator",
+      value = Sys.time()
+    )
+  })
+
+  output$select_satelite <- shiny::renderUI({
+    shiny::selectInput("satelite", p("Satélite"), choices = get_satelites())
   })
 
 
   output$initialDateSat <-
-    renderText({
-      req(input$satelite)
+    shiny::renderText({
+      shiny::req(input$satelite)
       if (input$data == "selectSats") {
         test_TLEs[[strtoi(input$satelite)]]$dateTime
       } else {
@@ -169,46 +218,66 @@ server <- function(input, output, session) {
       }
     })
 
-  observeEvent(input$metodos, {
-    updateTabsetPanel(session, "metodos", selected = input$metodos)
+  shiny::observeEvent(input$metodos, {
+    shiny::updateTabsetPanel(session, "metodos", selected = input$metodos)
   })
 
-  output$SGDP4Map <- renderLeaflet({
+  output$SGDP4Map <- leaflet::renderLeaflet({
     if (!is.null(tabs_data())) {
       tabs_data()
     }
   })
 
-  output$HPOPMap <- renderLeaflet({
+  output$HPOPMap <- leaflet::renderLeaflet({
     if (!is.null(tabs_data())) {
       tabs_data()
     }
   })
 
-  output$myMap <- renderLeaflet({
+  output$myMap <- leaflet::renderLeaflet({
     if (!is.null(map_data_simulator())) {
       map_data_simulator()
     }
   })
 
   render_SGDP4 <- function() {
-    req(input$satelite)
-    req(input$propagationTime)
-    req(input$dimension)
-    req(input$data)
-    req(input$method)
-    req(input$colors)
-    
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab1", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab2", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab3", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab4", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab5", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab6", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab7", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab8", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab9", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelSGDP4", "SGDP4Tab10", session = getDefaultReactiveDomain())
+    shiny::req(input$satelite)
+    shiny::req(input$propagationTime)
+    shiny::req(input$dimension)
+    shiny::req(input$data)
+    shiny::req(input$method)
+    shiny::req(input$colors)
+
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab1",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab2",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab3",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab4",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab5",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab6",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab7",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab8",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab9",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab10",
+      session = shiny::getDefaultReactiveDomain()
+    )
 
     sats <- list()
     differents <- FALSE
@@ -221,7 +290,7 @@ server <- function(input, output, session) {
     orbital_elements <- NULL
 
     if (!is.null(idNotificationHPOPNeg)) {
-      removeNotification(idNotificationHPOPNeg)
+      shiny::removeNotification(idNotificationHPOPNeg)
     }
     idNotificationHPOPNeg <<- NULL
 
@@ -232,16 +301,16 @@ server <- function(input, output, session) {
     } else {
       if (!is.null(input$TLEFile)) {
         file <- input$TLEFile
-        TLE_sats <- readTLE(filename = file$datapath)
+        TLE_sats <- asteRisk::readTLE(filename = file$datapath)
         if (!is.null(names(TLE_sats))) {
           sats[[1]] <- TLE_sats
         } else {
           sats <- TLE_sats
         }
-        numberNORAD <- sats[[1]]$NORADcatalogNumber
+        number_NORAD <- sats[[1]]$NORADcatalogNumber
         for (i in seq_along(sats)) {
           sats[[i]] <- c(sats[[i]], initialDateTime = sats[[i]]$dateTime)
-          if (numberNORAD != sats[[i]]$NORADcatalogNumber) {
+          if (number_NORAD != sats[[i]]$NORADcatalogNumber) {
             differents <- TRUE
           }
         }
@@ -251,11 +320,11 @@ server <- function(input, output, session) {
     }
 
     if (input$propagationTime == "datetime") {
-      req(input$targetDateSat)
-      req(input$targetTimeSat)
+      shiny::req(input$targetDateSat)
+      shiny::req(input$targetTimeSat)
 
       if (!is.null(idNotificationDifferents)) {
-        removeNotification(idNotificationDifferents)
+        shiny::removeNotification(idNotificationDifferents)
       }
       idNotificationDifferents <<- NULL
 
@@ -297,7 +366,7 @@ server <- function(input, output, session) {
           return()
         }
         idNotificationDifferents <<-
-          showNotification(
+          shiny::showNotification(
             paste(
               "No se puede propagar en minutos al ser satélites diferentes"
             ),
@@ -308,11 +377,11 @@ server <- function(input, output, session) {
         return(render_empty_map(input$dimension))
       }
       if (!is.null(idNotificationDifferents)) {
-        removeNotification(idNotificationDifferents)
+        shiny::removeNotification(idNotificationDifferents)
       }
       idNotificationDifferents <<- NULL
 
-      req(input$propagationTimeSat)
+      shiny::req(input$propagationTimeSat)
       geodetics_matrix_and_positions_two_weeks <-
         calculate_geodetic_matrix_and_position_two_weeks(sats,
           min = input$propagationTimeSat,
@@ -336,8 +405,6 @@ server <- function(input, output, session) {
     }
 
     geo_markers <- calculate_geo_markers(geodetics_matrix)
-    # geo_polylines <- calculate_geo_polylines(geo_markers)
-
 
     names <- NULL
     for (i in seq_along(sats)) {
@@ -347,13 +414,15 @@ server <- function(input, output, session) {
         names <- c(names, sats[[i]]$NORADcatalogNumber)
       }
     }
-    
-    if(length(sats) > 1){
-      for(i in seq_along(sats)){
+
+    if (length(sats) > 1) {
+      for (i in seq_along(sats)) {
         local({
           my_i <- i
-          showTab("tabsetpanelSGDP4", paste0("SGDP4Tab", my_i), FALSE, session = getDefaultReactiveDomain())
-          output[[paste0("SGDP4Map", my_i)]] <- renderLeaflet({
+          shiny::showTab("tabsetpanelSGDP4", paste0("SGDP4Tab", my_i), FALSE,
+            session = shiny::getDefaultReactiveDomain()
+          )
+          output[[paste0("SGDP4Map", my_i)]] <- leaflet::renderLeaflet({
             render_map_satellites(
               list(geo_markers[[my_i]]),
               list(results_position_matrix_GCRF[[my_i]]),
@@ -390,30 +459,50 @@ server <- function(input, output, session) {
   }
 
   render_HPOP <- function() {
-    req(input$satelite)
-    req(input$propagationTime)
-    req(input$dimension)
-    req(input$data)
-    req(input$colors)
-    
-    hideTab("tabsetpanelHPOP", "HPOPTab1", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab2", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab3", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab4", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab5", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab6", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab7", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab8", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab9", session = getDefaultReactiveDomain())
-    hideTab("tabsetpanelHPOP", "HPOPTab10", session = getDefaultReactiveDomain())
+    shiny::req(input$satelite)
+    shiny::req(input$propagationTime)
+    shiny::req(input$dimension)
+    shiny::req(input$data)
+    shiny::req(input$colors)
+
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab1",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab2",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab3",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab4",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab5",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab6",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab7",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab8",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab9",
+      session = shiny::getDefaultReactiveDomain()
+    )
+    shiny::hideTab("tabsetpanelHPOP", "HPOPTab10",
+      session = shiny::getDefaultReactiveDomain()
+    )
 
     if (!is.null(idNotificationDifferents)) {
-      removeNotification(idNotificationDifferents)
+      shiny::removeNotification(idNotificationDifferents)
     }
     idNotificationDifferents <<- NULL
 
     if (!is.null(idNotificationHPOPNeg)) {
-      removeNotification(idNotificationHPOPNeg)
+      shiny::removeNotification(idNotificationHPOPNeg)
     }
     idNotificationHPOPNeg <<- NULL
 
@@ -428,16 +517,16 @@ server <- function(input, output, session) {
     } else {
       if (!is.null(input$TLEFile)) {
         file <- input$TLEFile
-        TLE_sats <- readTLE(filename = file$datapath)
+        TLE_sats <- asteRisk::readTLE(filename = file$datapath)
         if (!is.null(names(TLE_sats))) {
           sats[[1]] <- TLE_sats
         } else {
           sats <- TLE_sats
         }
-        numberNORAD <- sats[[1]]$NORADcatalogNumber
+        number_NORAD <- sats[[1]]$NORADcatalogNumber
         for (i in seq_along(sats)) {
           sats[[i]] <- c(sats[[i]], initialDateTime = sats[[i]]$dateTime)
-          if (numberNORAD != sats[[i]]$NORADcatalogNumber) {
+          if (number_NORAD != sats[[i]]$NORADcatalogNumber) {
             differents <- TRUE
           }
         }
@@ -447,8 +536,8 @@ server <- function(input, output, session) {
     }
 
     if (input$propagationTime == "datetime") {
-      req(input$targetDateSat)
-      req(input$targetTimeSat)
+      shiny::req(input$targetDateSat)
+      shiny::req(input$targetTimeSat)
 
       target_time_sat <- substring(input$targetTimeSat, 12, 19)
       target_time_sat <-
@@ -473,7 +562,7 @@ server <- function(input, output, session) {
           return()
         }
         idNotificationDifferents <<-
-          showNotification(
+          shiny::showNotification(
             paste(
               "No se puede propagar en minutos al ser satélites diferentes"
             ),
@@ -485,11 +574,11 @@ server <- function(input, output, session) {
       }
 
       if (!is.null(idNotificationDifferents)) {
-        removeNotification(idNotificationDifferents)
+        shiny::removeNotification(idNotificationDifferents)
       }
       idNotificationDifferents <<- NULL
 
-      req(input$propagationTimeSat)
+      shiny::req(input$propagationTimeSat)
       geodetics_matrix_and_positions_two_weeks_hpop <-
         calculate_geodetic_matrix_and_position_two_weeks_hpop(sats,
           min = input$propagationTimeSat
@@ -501,7 +590,7 @@ server <- function(input, output, session) {
         return()
       }
       idNotificationHPOPNeg <<-
-        showNotification(
+        shiny::showNotification(
           paste(
             "No se puede propagar hacia atrás en el tiempo para el método HPOP"
           ),
@@ -524,7 +613,6 @@ server <- function(input, output, session) {
       geodetics_matrix_and_positions_two_weeks_hpop[[6]]
 
     geo_markers <- calculate_geo_markers(geodetics_matrix_hpop)
-    # geo_polylines <- calculate_geo_polylines(geo_markers)
 
     names <- NULL
     for (i in seq_along(sats)) {
@@ -535,12 +623,14 @@ server <- function(input, output, session) {
       }
     }
 
-    if(length(sats) > 1){
-      for(i in seq_along(sats)){
+    if (length(sats) > 1) {
+      for (i in seq_along(sats)) {
         local({
           my_i <- i
-          showTab("tabsetpanelHPOP", paste0("HPOPTab", my_i), FALSE, session = getDefaultReactiveDomain())
-          output[[paste0("HPOPMap", my_i)]] <- renderLeaflet({
+          shiny::showTab("tabsetpanelHPOP", paste0("HPOPTab", my_i), FALSE,
+            session = shiny::getDefaultReactiveDomain()
+          )
+          output[[paste0("HPOPMap", my_i)]] <- leaflet::renderLeaflet({
             render_map_satellites(
               list(geo_markers[[my_i]]),
               list(results_position_matrix_GCRF[[my_i]]),
@@ -573,15 +663,15 @@ server <- function(input, output, session) {
   }
 
   render_simulator <- function() {
-    req(input$inclination)
-    req(input$ascension)
-    req(input$eccentricity)
-    req(input$perigeeArgument)
-    req(input$meanAnomaly)
-    req(input$meanMotion)
-    req(input$Bstar)
-    req(input$propagationTimeSimulator)
-    req(input$dimension)
+    shiny::req(input$inclination)
+    shiny::req(input$ascension)
+    shiny::req(input$eccentricity)
+    shiny::req(input$perigeeArgument)
+    shiny::req(input$meanAnomaly)
+    shiny::req(input$meanMotion)
+    shiny::req(input$Bstar)
+    shiny::req(input$propagationTimeSimulator)
+    shiny::req(input$dimension)
 
     geodetics_matrix <- NULL
     results_position_matrix_GCRF <- NULL
@@ -589,17 +679,17 @@ server <- function(input, output, session) {
     orbital_elements <- NULL
 
     if (!is.null(idNotificationDifferents)) {
-      removeNotification(idNotificationDifferents)
+      shiny::removeNotification(idNotificationDifferents)
     }
     idNotificationDifferents <<- NULL
 
     if (!is.null(idNotificationFile)) {
-      removeNotification(idNotificationFile)
+      shiny::removeNotification(idNotificationFile)
     }
     idNotificationFile <<- NULL
 
     if (!is.null(idNotificationHPOPNeg)) {
-      removeNotification(idNotificationHPOPNeg)
+      shiny::removeNotification(idNotificationHPOPNeg)
     }
     idNotificationHPOPNeg <<- NULL
 
@@ -622,8 +712,8 @@ server <- function(input, output, session) {
     sats[[1]] <- sat
 
     if (input$propagationTimeSimulator == "datetime") {
-      req(input$targetDateSimulator)
-      req(input$targetTimeSimulator)
+      shiny::req(input$targetDateSimulator)
+      shiny::req(input$targetTimeSimulator)
 
       target_time_sat <-
         substring(input$targetTimeSimulator, 12, 19)
@@ -653,7 +743,7 @@ server <- function(input, output, session) {
       positions_two_weeks <-
         geodetics_matrix_and_positions_two_weeks[[5]]
     } else if (input$propagationTimeSimulator == "minutes") {
-      req(input$propagationTimeSatSimulator)
+      shiny::req(input$propagationTimeSatSimulator)
       geodetics_matrix_and_positions_two_weeks <-
         calculate_geodetic_matrix_and_position_two_weeks(sats,
           min = input$propagationTimeSatSimulator
@@ -671,7 +761,6 @@ server <- function(input, output, session) {
         geodetics_matrix_and_positions_two_weeks[[5]]
     }
     geo_markers <- calculate_geo_markers(geodetics_matrix)
-    # geo_polylines <- calculate_geo_polylines(geo_markers)
 
     render_map_satellites(
       geo_markers,
@@ -684,7 +773,7 @@ server <- function(input, output, session) {
     )
   }
 
-  tabs_data <- eventReactive(input$generate, {
+  tabs_data <- shiny::eventReactive(input$generate, {
     if (input$metodos == "SGDP4") {
       render_SGDP4()
     } else if (input$metodos == "HPOP") {
@@ -694,15 +783,15 @@ server <- function(input, output, session) {
     }
   })
 
-  map_data_simulator <- eventReactive(input$generateSimulator, {
+  map_data_simulator <- shiny::eventReactive(input$generateSimulator, {
     render_simulator()
   })
 
   render_plots <- function() {
-    req(input$satelite)
-    req(input$propagationTime)
-    req(input$dimension)
-    req(input$data)
+    shiny::req(input$satelite)
+    shiny::req(input$propagationTime)
+    shiny::req(input$dimension)
+    shiny::req(input$data)
 
     sats <- list()
     differents <- FALSE
@@ -710,7 +799,7 @@ server <- function(input, output, session) {
     orbital_elements <- NULL
 
     if (!is.null(idNotificationHPOPNeg)) {
-      removeNotification(idNotificationHPOPNeg)
+      shiny::removeNotification(idNotificationHPOPNeg)
     }
     idNotificationHPOPNeg <<- NULL
 
@@ -721,16 +810,16 @@ server <- function(input, output, session) {
     } else {
       if (!is.null(input$TLEFile)) {
         file <- input$TLEFile
-        TLE_sats <- readTLE(filename = file$datapath)
+        TLE_sats <- asteRisk::readTLE(filename = file$datapath)
         if (!is.null(names(TLE_sats))) {
           sats[[1]] <- TLE_sats
         } else {
           sats <- TLE_sats
         }
-        numberNORAD <- sats[[1]]$NORADcatalogNumber
+        number_NORAD <- sats[[1]]$NORADcatalogNumber
         for (i in seq_along(sats)) {
           sats[[i]] <- c(sats[[i]], initialDateTime = sats[[i]]$dateTime)
-          if (numberNORAD != sats[[i]]$NORADcatalogNumber) {
+          if (number_NORAD != sats[[i]]$NORADcatalogNumber) {
             differents <- TRUE
           }
         }
@@ -740,11 +829,11 @@ server <- function(input, output, session) {
     }
 
     if (input$propagationTime == "datetime") {
-      req(input$targetDateSat)
-      req(input$targetTimeSat)
+      shiny::req(input$targetDateSat)
+      shiny::req(input$targetTimeSat)
 
       if (!is.null(idNotificationDifferents)) {
-        removeNotification(idNotificationDifferents)
+        shiny::removeNotification(idNotificationDifferents)
       }
       idNotificationDifferents <<- NULL
 
@@ -773,7 +862,7 @@ server <- function(input, output, session) {
           return()
         }
         idNotificationDifferents <<-
-          showNotification(
+          shiny::showNotification(
             paste(
               "No se puede propagar en minutos al ser satélites diferentes"
             ),
@@ -784,11 +873,11 @@ server <- function(input, output, session) {
         return(orbital_elements)
       }
       if (!is.null(idNotificationDifferents)) {
-        removeNotification(idNotificationDifferents)
+        shiny::removeNotification(idNotificationDifferents)
       }
       idNotificationDifferents <<- NULL
 
-      req(input$propagationTimeSat)
+      shiny::req(input$propagationTimeSat)
       geodetics_matrix_and_positions_two_weeks <-
         calculate_geodetic_matrix_and_position_two_weeks(sats,
           min = input$propagationTimeSat
@@ -809,13 +898,13 @@ server <- function(input, output, session) {
     return(list(orbital_elements, names))
   }
 
-  output$plot1 <- renderPlotly({
+  output$plot1 <- plotly::renderPlotly({
     if (!("leaflet" %in% class(tabs_data()))) {
       orbital_elements <- tabs_data()[[1]]
       sats <- tabs_data()[[2]]
 
-      p <- plot_ly() %>%
-        layout(
+      p <- plotly::plot_ly() |>
+        plotly::layout(
           legend = list(orientation = "h", y = -0.2),
           xaxis = list(title = "Tiempo (mins)"),
           yaxis = list(title = "Excentricidad (rads)"),
@@ -826,19 +915,22 @@ server <- function(input, output, session) {
         x <- as.numeric(orbital_elements[[i]][, 6])
         y <- as.numeric(orbital_elements[[i]][, 1])
         data <- data.frame(x, y)
-        p <- p %>% add_trace(data = data, x = ~x, y = ~y, type = "scatter", mode = "lines", name = sats[[i]])
+        p <- p |> plotly::add_trace(
+          data = data, x = ~x, y = ~y,
+          type = "scatter", mode = "lines", name = sats[[i]]
+        )
       }
       p
     }
   })
 
-  output$plot2 <- renderPlotly({
+  output$plot2 <- plotly::renderPlotly({
     if (!("leaflet" %in% class(tabs_data()))) {
       orbital_elements <- tabs_data()[[1]]
       sats <- tabs_data()[[2]]
 
-      p <- plot_ly() %>%
-        layout(
+      p <- plotly::plot_ly() |>
+        plotly::layout(
           legend = list(orientation = "h", y = -0.2),
           xaxis = list(title = "Tiempo (mins)"),
           yaxis = list(title = "Inclinación (rads)"),
@@ -849,19 +941,22 @@ server <- function(input, output, session) {
         x <- as.numeric(orbital_elements[[i]][, 6])
         y <- as.numeric(orbital_elements[[i]][, 2])
         data <- data.frame(x, y)
-        p <- p %>% add_trace(data = data, x = ~x, y = ~y, type = "scatter", mode = "lines", name = sats[[i]])
+        p <- p |> plotly::add_trace(
+          data = data, x = ~x, y = ~y,
+          type = "scatter", mode = "lines", name = sats[[i]]
+        )
       }
       p
     }
   })
 
-  output$plot3 <- renderPlotly({
+  output$plot3 <- plotly::renderPlotly({
     if (!("leaflet" %in% class(tabs_data()))) {
       orbital_elements <- tabs_data()[[1]]
       sats <- tabs_data()[[2]]
 
-      p <- plot_ly() %>%
-        layout(
+      p <- plotly::plot_ly() |>
+        plotly::layout(
           legend = list(orientation = "h", y = -0.2),
           xaxis = list(title = "Tiempo (mins)"),
           yaxis = list(title = "Anomalía (rads)"),
@@ -872,19 +967,22 @@ server <- function(input, output, session) {
         x <- as.numeric(orbital_elements[[i]][, 6])
         y <- as.numeric(orbital_elements[[i]][, 3])
         data <- data.frame(x, y)
-        p <- p %>% add_trace(data = data, x = ~x, y = ~y, type = "scatter", mode = "lines", name = sats[[i]])
+        p <- p |> plotly::add_trace(
+          data = data, x = ~x, y = ~y,
+          type = "scatter", mode = "lines", name = sats[[i]]
+        )
       }
       p
     }
   })
 
-  output$plot4 <- renderPlotly({
+  output$plot4 <- plotly::renderPlotly({
     if (!("leaflet" %in% class(tabs_data()))) {
       orbital_elements <- tabs_data()[[1]]
       sats <- tabs_data()[[2]]
 
-      p <- plot_ly() %>%
-        layout(
+      p <- plotly::plot_ly() |>
+        plotly::layout(
           legend = list(orientation = "h", y = -0.2),
           xaxis = list(title = "Tiempo (mins)"),
           yaxis = list(title = "Argumento del perigeo (rads)"),
@@ -895,19 +993,22 @@ server <- function(input, output, session) {
         x <- as.numeric(orbital_elements[[i]][, 6])
         y <- as.numeric(orbital_elements[[i]][, 4])
         data <- data.frame(x, y)
-        p <- p %>% add_trace(data = data, x = ~x, y = ~y, type = "scatter", mode = "lines", name = sats[[i]])
+        p <- p |> plotly::add_trace(
+          data = data, x = ~x, y = ~y,
+          type = "scatter", mode = "lines", name = sats[[i]]
+        )
       }
       p
     }
   })
 
-  output$plot5 <- renderPlotly({
+  output$plot5 <- plotly::renderPlotly({
     if (!("leaflet" %in% class(tabs_data()))) {
       orbital_elements <- tabs_data()[[1]]
       sats <- tabs_data()[[2]]
 
-      p <- plot_ly() %>%
-        layout(
+      p <- plotly::plot_ly() |>
+        plotly::layout(
           legend = list(orientation = "h", y = -0.2),
           xaxis = list(title = "Tiempo (mins)"),
           yaxis = list(title = "Ascención recta (rads)"),
@@ -918,7 +1019,10 @@ server <- function(input, output, session) {
         x <- as.numeric(orbital_elements[[i]][, 6])
         y <- as.numeric(orbital_elements[[i]][, 5])
         data <- data.frame(x, y)
-        p <- p %>% add_trace(data = data, x = ~x, y = ~y, type = "scatter", mode = "lines", name = sats[[i]])
+        p <- p |> plotly::add_trace(
+          data = data, x = ~x, y = ~y,
+          type = "scatter", mode = "lines", name = sats[[i]]
+        )
       }
       p
     }
