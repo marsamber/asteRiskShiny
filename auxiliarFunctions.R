@@ -3,7 +3,7 @@ get_satelites <- function() {
     asteRisk::readTLE("www/testTLE.txt")
   lista <- list()
   for (i in seq_along(test_TLEs[])) {
-    object_name <- get_object_name(test_TLEs[[i]]$NORADcatalogNumber)
+    object_name <- test_TLEs[[i]]$objectName
     datetime <- get_datetime(test_TLEs[[i]]$dateTime)
     key <- paste0(
       object_name,
@@ -17,40 +17,6 @@ get_satelites <- function() {
     lista[[key]] <- value
   }
   return(lista)
-}
-
-get_object_name <- function(NORAD_catalog_number) {
-  switch(NORAD_catalog_number,
-    "00005" = "VANGUARD 1",
-    "04632" = "TITAN 3C TRANSTAGE R/B",
-    "06251" = "DELTA 1 DEB",
-    "08195" = "MOLNIYA 2-14",
-    "09880" = "MOLNIYA 1-36",
-    "09998" = "SMS 1 AKM",
-    "11801" = "SL-12 R/B(AUX MOTOR)",
-    "14128" = "EUTELSAT 1-F1 (ECS 1)",
-    "16925" = "SL-6 R/B(2)",
-    "20413" = "SL-12 R/B",
-    "21897" = "MOLNIYA 1-83",
-    "22312" = "SL-6 R/B(2)",
-    "22674" = "SL-6 R/B(2)",
-    "23177" = "ARIANE 44L+ R/B",
-    "23333" = "WIND",
-    "23599" = "ARIANE 42P+3 R/B",
-    "24208" = "ITALSAT 2",
-    "25954" = "AMC-4 (GE-4)",
-    "26900" = "INTELSAT 902",
-    "26975" = "COSMOS 1024 DEB",
-    "28057" = "CBERS 2",
-    "28129" = "NAVSTAR 53 (USA 175)",
-    "28350" = "COSMOS 2405",
-    "28623" = "H-2 R/B",
-    "28626" = "XM-3",
-    "28872" = "MINOTAUR R/B",
-    "29141" = "SL-14 DEB",
-    "29238" = "SL-12 DEB",
-    "88888" = "Original STR"
-  )
 }
 
 get_datetime <- function(datetime) {

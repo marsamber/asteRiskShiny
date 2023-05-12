@@ -24,15 +24,54 @@ server <- function(input, output, session) {
 
   test_TLEs <-
     asteRisk::readTLE("www/testTLE.txt")
-  idNotificationDifferents <- NULL
-  idNotificationFile <- NULL
-  idNotificationHPOPNeg <- NULL
+  id_notification_differents <- NULL
+  id_notification_file <- NULL
+  id_notification_HPOP_neg <- NULL
+  id_notification_error <- NULL
+
+  read_file <- function(file) {
+    if (!is.null(id_notification_error)) {
+        shiny::removeNotification(id_notification_error)
+      }
+    id_notification_error <<- NULL
+
+    # Leer el contenido del archivo
+    file_content <- readLines(file$datapath)
+
+    # Agregar un salto de línea al final del archivo si no existe
+    if (!grepl("\\s*$", file_content[length(file_content)])) {
+      file_content <- c(file_content, "")
+    }
+
+    # Crear un nuevo archivo temporal con el contenido modificado
+    temp_file <- tempfile()
+    writeLines(file_content, temp_file)
+
+    # Pasar el datapath del archivo temporal a la función readTLE
+    sats <- asteRisk::readTLE(filename = temp_file)
+
+    # Eliminar el archivo temporal después de su uso
+    unlink(temp_file)
+
+    has_NA <- any(sapply(sats, function(x) any(is.na(x))))
+    if (has_NA) {
+      id_notification_error <<- shiny::showNotification(
+        "Se produjo un error al leer el archivo TLE.
+        Verifica que el formato del archivo sea correcto.",
+        type = "error",
+        duration = 0
+      )
+      return(NULL)
+    }
+
+    return(sats)
+  }
 
   get_more_recent_date <- function() {
     shiny::req(input$TLEFile)
 
     file <- input$TLEFile
-    sats <- asteRisk::readTLE(filename = file$datapath)
+    sats <- read_file(file)
     dates <- NULL
 
     if (is.null(names(sats))) {
@@ -67,10 +106,10 @@ server <- function(input, output, session) {
         )
         shinyTime::updateTimeInput(session, "targetTimeSat", value = Sys.time())
 
-        if (!is.null(idNotificationFile)) {
-          shiny::removeNotification(idNotificationFile)
+        if (!is.null(id_notification_file)) {
+          shiny::removeNotification(id_notification_file)
         }
-        idNotificationFile <<- NULL
+        id_notification_file <<- NULL
       } else {
         if (!is.null(input$TLEFile)) {
           initial_datetime_sat <- get_more_recent_date()
@@ -84,15 +123,15 @@ server <- function(input, output, session) {
             value = Sys.time()
           )
 
-          if (!is.null(idNotificationFile)) {
-            shiny::removeNotification(idNotificationFile)
+          if (!is.null(id_notification_file)) {
+            shiny::removeNotification(id_notification_file)
           }
-          idNotificationFile <<- NULL
+          id_notification_file <<- NULL
         } else {
-          if (!is.null(idNotificationFile)) {
+          if (!is.null(id_notification_file)) {
             return()
           }
-          idNotificationFile <<-
+          id_notification_file <<-
             shiny::showNotification(
               paste("Debe subir un fichero
                                                         para visualizar"),
@@ -289,10 +328,10 @@ server <- function(input, output, session) {
     result_velocity_matrix_GCRF <- NULL
     orbital_elements <- NULL
 
-    if (!is.null(idNotificationHPOPNeg)) {
-      shiny::removeNotification(idNotificationHPOPNeg)
+    if (!is.null(id_notification_HPOP_neg)) {
+      shiny::removeNotification(id_notification_HPOP_neg)
     }
-    idNotificationHPOPNeg <<- NULL
+    id_notification_HPOP_neg <<- NULL
 
     if (input$data == "selectSats") {
       sat <- test_TLEs[[strtoi(input$satelite)]]
@@ -301,7 +340,7 @@ server <- function(input, output, session) {
     } else {
       if (!is.null(input$TLEFile)) {
         file <- input$TLEFile
-        TLE_sats <- asteRisk::readTLE(filename = file$datapath)
+        TLE_sats <- read_file(file)
         if (!is.null(names(TLE_sats))) {
           sats[[1]] <- TLE_sats
         } else {
@@ -323,10 +362,10 @@ server <- function(input, output, session) {
       shiny::req(input$targetDateSat)
       shiny::req(input$targetTimeSat)
 
-      if (!is.null(idNotificationDifferents)) {
-        shiny::removeNotification(idNotificationDifferents)
+      if (!is.null(id_notification_differents)) {
+        shiny::removeNotification(id_notification_differents)
       }
-      idNotificationDifferents <<- NULL
+      id_notification_differents <<- NULL
 
       target_time_sat <- substring(input$targetTimeSat, 12, 19)
       target_time_sat <-
@@ -362,10 +401,10 @@ server <- function(input, output, session) {
         geodetics_matrix_and_positions_two_weeks[[7]]
     } else if (input$propagationTime == "minutes") {
       if (differents) {
-        if (!is.null(idNotificationDifferents)) {
+        if (!is.null(id_notification_differents)) {
           return()
         }
-        idNotificationDifferents <<-
+        id_notification_differents <<-
           shiny::showNotification(
             paste(
               "No se puede propagar en minutos al ser satélites diferentes"
@@ -376,10 +415,10 @@ server <- function(input, output, session) {
 
         return(render_empty_map(input$dimension))
       }
-      if (!is.null(idNotificationDifferents)) {
-        shiny::removeNotification(idNotificationDifferents)
+      if (!is.null(id_notification_differents)) {
+        shiny::removeNotification(id_notification_differents)
       }
-      idNotificationDifferents <<- NULL
+      id_notification_differents <<- NULL
 
       shiny::req(input$propagationTimeSat)
       geodetics_matrix_and_positions_two_weeks <-
@@ -419,9 +458,15 @@ server <- function(input, output, session) {
       for (i in seq_along(sats)) {
         local({
           my_i <- i
+
+          output[[paste0("titleSGDP4Tab", my_i)]] <- shiny::renderText({
+            names[[my_i]]
+          })
+
           shiny::showTab("tabsetpanelSGDP4", paste0("SGDP4Tab", my_i), FALSE,
             session = shiny::getDefaultReactiveDomain()
           )
+
           output[[paste0("SGDP4Map", my_i)]] <- leaflet::renderLeaflet({
             render_map_satellites(
               list(geo_markers[[my_i]]),
@@ -496,15 +541,15 @@ server <- function(input, output, session) {
       session = shiny::getDefaultReactiveDomain()
     )
 
-    if (!is.null(idNotificationDifferents)) {
-      shiny::removeNotification(idNotificationDifferents)
+    if (!is.null(id_notification_differents)) {
+      shiny::removeNotification(id_notification_differents)
     }
-    idNotificationDifferents <<- NULL
+    id_notification_differents <<- NULL
 
-    if (!is.null(idNotificationHPOPNeg)) {
-      shiny::removeNotification(idNotificationHPOPNeg)
+    if (!is.null(id_notification_HPOP_neg)) {
+      shiny::removeNotification(id_notification_HPOP_neg)
     }
-    idNotificationHPOPNeg <<- NULL
+    id_notification_HPOP_neg <<- NULL
 
     sats <- list()
     differents <- FALSE
@@ -517,7 +562,7 @@ server <- function(input, output, session) {
     } else {
       if (!is.null(input$TLEFile)) {
         file <- input$TLEFile
-        TLE_sats <- asteRisk::readTLE(filename = file$datapath)
+        TLE_sats <- read_file(file)
         if (!is.null(names(TLE_sats))) {
           sats[[1]] <- TLE_sats
         } else {
@@ -558,10 +603,10 @@ server <- function(input, output, session) {
         )
     } else {
       if (differents) {
-        if (!is.null(idNotificationDifferents)) {
+        if (!is.null(id_notification_differents)) {
           return()
         }
-        idNotificationDifferents <<-
+        id_notification_differents <<-
           shiny::showNotification(
             paste(
               "No se puede propagar en minutos al ser satélites diferentes"
@@ -573,10 +618,10 @@ server <- function(input, output, session) {
         return(render_empty_map(input$dimension))
       }
 
-      if (!is.null(idNotificationDifferents)) {
-        shiny::removeNotification(idNotificationDifferents)
+      if (!is.null(id_notification_differents)) {
+        shiny::removeNotification(id_notification_differents)
       }
-      idNotificationDifferents <<- NULL
+      id_notification_differents <<- NULL
 
       shiny::req(input$propagationTimeSat)
       geodetics_matrix_and_positions_two_weeks_hpop <-
@@ -586,10 +631,10 @@ server <- function(input, output, session) {
     }
 
     if (is.null(geodetics_matrix_and_positions_two_weeks_hpop)) {
-      if (!is.null(idNotificationHPOPNeg)) {
+      if (!is.null(id_notification_HPOP_neg)) {
         return()
       }
-      idNotificationHPOPNeg <<-
+      id_notification_HPOP_neg <<-
         shiny::showNotification(
           paste(
             "No se puede propagar hacia atrás en el tiempo para el método HPOP"
@@ -627,9 +672,15 @@ server <- function(input, output, session) {
       for (i in seq_along(sats)) {
         local({
           my_i <- i
+
+          output[[paste0("titleHPOPTab", my_i)]] <- shiny::renderText({
+            names[[my_i]]
+          })
+
           shiny::showTab("tabsetpanelHPOP", paste0("HPOPTab", my_i), FALSE,
             session = shiny::getDefaultReactiveDomain()
           )
+
           output[[paste0("HPOPMap", my_i)]] <- leaflet::renderLeaflet({
             render_map_satellites(
               list(geo_markers[[my_i]]),
@@ -678,20 +729,20 @@ server <- function(input, output, session) {
     results_velocity_matrix_GCRF <- NULL
     orbital_elements <- NULL
 
-    if (!is.null(idNotificationDifferents)) {
-      shiny::removeNotification(idNotificationDifferents)
+    if (!is.null(id_notification_differents)) {
+      shiny::removeNotification(id_notification_differents)
     }
-    idNotificationDifferents <<- NULL
+    id_notification_differents <<- NULL
 
-    if (!is.null(idNotificationFile)) {
-      shiny::removeNotification(idNotificationFile)
+    if (!is.null(id_notification_file)) {
+      shiny::removeNotification(id_notification_file)
     }
-    idNotificationFile <<- NULL
+    id_notification_file <<- NULL
 
-    if (!is.null(idNotificationHPOPNeg)) {
-      shiny::removeNotification(idNotificationHPOPNeg)
+    if (!is.null(id_notification_HPOP_neg)) {
+      shiny::removeNotification(id_notification_HPOP_neg)
     }
-    idNotificationHPOPNeg <<- NULL
+    id_notification_HPOP_neg <<- NULL
 
     sat <- list(
       initialDateTime = paste(
@@ -798,10 +849,10 @@ server <- function(input, output, session) {
 
     orbital_elements <- NULL
 
-    if (!is.null(idNotificationHPOPNeg)) {
-      shiny::removeNotification(idNotificationHPOPNeg)
+    if (!is.null(id_notification_HPOP_neg)) {
+      shiny::removeNotification(id_notification_HPOP_neg)
     }
-    idNotificationHPOPNeg <<- NULL
+    id_notification_HPOP_neg <<- NULL
 
     if (input$data == "selectSats") {
       sat <- test_TLEs[[strtoi(input$satelite)]]
@@ -810,7 +861,7 @@ server <- function(input, output, session) {
     } else {
       if (!is.null(input$TLEFile)) {
         file <- input$TLEFile
-        TLE_sats <- asteRisk::readTLE(filename = file$datapath)
+        TLE_sats <- read_file(file)
         if (!is.null(names(TLE_sats))) {
           sats[[1]] <- TLE_sats
         } else {
@@ -832,10 +883,10 @@ server <- function(input, output, session) {
       shiny::req(input$targetDateSat)
       shiny::req(input$targetTimeSat)
 
-      if (!is.null(idNotificationDifferents)) {
-        shiny::removeNotification(idNotificationDifferents)
+      if (!is.null(id_notification_differents)) {
+        shiny::removeNotification(id_notification_differents)
       }
-      idNotificationDifferents <<- NULL
+      id_notification_differents <<- NULL
 
       target_time_sat <- substring(input$targetTimeSat, 12, 19)
       target_time_sat <-
@@ -858,10 +909,10 @@ server <- function(input, output, session) {
         geodetics_matrix_and_positions_two_weeks[[4]]
     } else if (input$propagationTime == "minutes") {
       if (differents) {
-        if (!is.null(idNotificationDifferents)) {
+        if (!is.null(id_notification_differents)) {
           return()
         }
-        idNotificationDifferents <<-
+        id_notification_differents <<-
           shiny::showNotification(
             paste(
               "No se puede propagar en minutos al ser satélites diferentes"
@@ -872,10 +923,10 @@ server <- function(input, output, session) {
 
         return(orbital_elements)
       }
-      if (!is.null(idNotificationDifferents)) {
-        shiny::removeNotification(idNotificationDifferents)
+      if (!is.null(id_notification_differents)) {
+        shiny::removeNotification(id_notification_differents)
       }
-      idNotificationDifferents <<- NULL
+      id_notification_differents <<- NULL
 
       shiny::req(input$propagationTimeSat)
       geodetics_matrix_and_positions_two_weeks <-

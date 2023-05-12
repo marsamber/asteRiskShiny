@@ -217,61 +217,61 @@ mapsTabPanel <- tabPanel(
                 leaflet::leafletOutput("SGDP4Map", height = "80vh")
               )
             ),
-            tabPanel("Mapa 1",
+            tabPanel(title = uiOutput("titleSGDP4Tab1"),
               value = "SGDP4Tab1",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("SGDP4Map1", height = "80vh")
               )
             ),
-            tabPanel("Mapa 2",
+            tabPanel(title = uiOutput("titleSGDP4Tab2"),
               value = "SGDP4Tab2",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("SGDP4Map2", height = "80vh")
               )
             ),
-            tabPanel("Mapa 3",
+            tabPanel(title = uiOutput("titleSGDP4Tab3"),
               value = "SGDP4Tab3",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("SGDP4Map3", height = "80vh")
               )
             ),
-            tabPanel("Mapa 4",
+            tabPanel(title = uiOutput("titleSGDP4Tab4"),
               value = "SGDP4Tab4",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("SGDP4Map4", height = "80vh")
               )
             ),
-            tabPanel("Mapa 5",
+            tabPanel(title = uiOutput("titleSGDP4Tab5"),
               value = "SGDP4Tab5",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("SGDP4Map5", height = "80vh")
               )
             ),
-            tabPanel("Mapa 6",
+            tabPanel(title = uiOutput("titleSGDP4Tab6"),
               value = "SGDP4Tab6",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("SGDP4Map6", height = "80vh")
               )
             ),
-            tabPanel("Mapa 7",
+            tabPanel(title = uiOutput("titleSGDP4Tab7"),
               value = "SGDP4Tab7",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("SGDP4Map7", height = "80vh")
               )
             ),
-            tabPanel("Mapa 8",
+            tabPanel(title = uiOutput("titleSGDP4Tab8"),
               value = "SGDP4Tab8",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("SGDP4Map8", height = "80vh")
               )
             ),
-            tabPanel("Mapa 9",
+            tabPanel(title = uiOutput("titleSGDP4Tab9"),
               value = "SGDP4Tab9",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("SGDP4Map9", height = "80vh")
               )
             ),
-            tabPanel("Mapa 10",
+            tabPanel(title = uiOutput("titleSGDP4Tab10"),
               value = "SGDP4Tab10",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("SGDP4Map10", height = "80vh")
@@ -293,61 +293,61 @@ mapsTabPanel <- tabPanel(
                 leaflet::leafletOutput("HPOPMap", height = "80vh")
               )
             ),
-            tabPanel("Mapa 1",
+            tabPanel(title = uiOutput("titleHPOPTab1"),
               value = "HPOPTab1",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("HPOPMap1", height = "80vh")
               )
             ),
-            tabPanel("Mapa 2",
+            tabPanel(title = uiOutput("titleHPOPTab2"),
               value = "HPOPTab2",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("HPOPMap2", height = "80vh")
               )
             ),
-            tabPanel("Mapa 3",
+            tabPanel(title = uiOutput("titleHPOPTab3"),
               value = "HPOPTab3",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("HPOPMap3", height = "80vh")
               )
             ),
-            tabPanel("Mapa 4",
+            tabPanel(title = uiOutput("titleHPOPTab4"),
               value = "HPOPTab4",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("HPOPMap4", height = "80vh")
               )
             ),
-            tabPanel("Mapa 5",
+            tabPanel(title = uiOutput("titleHPOPTab5"),
               value = "HPOPTab5",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("HPOPMap5", height = "80vh")
               )
             ),
-            tabPanel("Mapa 6",
+            tabPanel(title = uiOutput("titleHPOPTab6"),
               value = "HPOPTab6",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("HPOPMap6", height = "80vh")
               )
             ),
-            tabPanel("Mapa 7",
+            tabPanel(title = uiOutput("titleHPOPTab7"),
               value = "HPOPTab7",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("HPOPMap7", height = "80vh")
               )
             ),
-            tabPanel("Mapa 8",
+            tabPanel(title = uiOutput("titleHPOPTab8"),
               value = "HPOPTab8",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("HPOPMap8", height = "80vh")
               )
             ),
-            tabPanel("Mapa 9",
+            tabPanel(title = uiOutput("titleHPOPTab9"),
               value = "HPOPTab9",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("HPOPMap9", height = "80vh")
               )
             ),
-            tabPanel("Mapa 10",
+            tabPanel(title = uiOutput("titleHPOPTab10"),
               value = "HPOPTab10",
               shinycssloaders::withSpinner(
                 leaflet::leafletOutput("HPOPMap10", height = "80vh")
