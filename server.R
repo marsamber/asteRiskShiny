@@ -1,6 +1,15 @@
 source("auxiliarFunctions.R", local = TRUE)
 
 server <- function(input, output, session) {
+  # Inicialización de variables
+  test_tles <-
+    asteRisk::readTLE("www/testTLE.txt")
+  id_notification_differents <- NULL
+  id_notification_file <- NULL
+  id_notification_hpop_neg <- NULL
+  id_notification_error <- NULL
+
+  # Actualización de datos mediante el botón get_latest_space_data
   proceso_en_ejecucion <- shiny::reactiveValues(estado = NULL)
 
   shiny::observeEvent(input$get_latest_space_data, {
@@ -22,17 +31,11 @@ server <- function(input, output, session) {
     }
   })
 
-  test_TLEs <-
-    asteRisk::readTLE("www/testTLE.txt")
-  id_notification_differents <- NULL
-  id_notification_file <- NULL
-  id_notification_HPOP_neg <- NULL
-  id_notification_error <- NULL
-
+  # Método para obtener los satélites desde el fichero TLE
   read_file <- function(file) {
     if (!is.null(id_notification_error)) {
-        shiny::removeNotification(id_notification_error)
-      }
+      shiny::removeNotification(id_notification_error)
+    }
     id_notification_error <<- NULL
 
     # Leer el contenido del archivo
@@ -53,8 +56,8 @@ server <- function(input, output, session) {
     # Eliminar el archivo temporal después de su uso
     unlink(temp_file)
 
-    has_NA <- any(sapply(sats, function(x) any(is.na(x))))
-    if (has_NA) {
+    has_na <- any(sapply(sats, function(x) any(is.na(x))))
+    if (has_na) {
       id_notification_error <<- shiny::showNotification(
         "Se produjo un error al leer el archivo TLE.
         Verifica que el formato del archivo sea correcto.",
@@ -67,37 +70,13 @@ server <- function(input, output, session) {
     return(sats)
   }
 
-  get_more_recent_date <- function() {
-    shiny::req(input$TLEFile)
-
-    file <- input$TLEFile
-    sats <- read_file(file)
-    dates <- NULL
-
-    if (is.null(names(sats))) {
-      for (i in seq_along(sats)) {
-        date <- sats[[i]]$dateTime
-        date <- as.POSIXct(date, tz = "UTC")
-        dates <- c(dates, date)
-      }
-
-      dates <- sort(dates, decreasing = TRUE)
-      date_string <- format(as.POSIXct(dates[1],
-        origin = "1970-01-01", tz = "UTC"
-      ))
-    } else {
-      date_string <- sats$dateTime
-    }
-
-    return(date_string)
-  }
-
+  # Inicializa los tiempos de propagación
   shiny::observe({
     if (!is.null(input$satelite)) {
       initial_datetime_sat <- NULL
       initial_date_sat <- NULL
       if (input$data == "selectSats") {
-        initial_datetime_sat <- test_TLEs[[strtoi(input$satelite)]]$dateTime
+        initial_datetime_sat <- test_tles[[strtoi(input$satelite)]]$dateTime
         initial_date_sat <- substr(initial_datetime_sat, 1, 10)
 
         shiny::updateDateInput(session,
@@ -112,7 +91,8 @@ server <- function(input, output, session) {
         id_notification_file <<- NULL
       } else {
         if (!is.null(input$TLEFile)) {
-          initial_datetime_sat <- get_more_recent_date()
+          sats <- read_file(input$TLEFile)
+          initial_datetime_sat <- get_more_recent_date(sats)
           initial_date_sat <- substr(initial_datetime_sat, 1, 10)
           shiny::updateDateInput(session,
             "targetDateSat",
@@ -133,8 +113,7 @@ server <- function(input, output, session) {
           }
           id_notification_file <<-
             shiny::showNotification(
-              paste("Debe subir un fichero
-                                                        para visualizar"),
+              paste("Debe subir un fichero para visualizar"),
               duration = 0,
               type = "warning"
             )
@@ -163,6 +142,7 @@ server <- function(input, output, session) {
     }
   })
 
+  # Oculta las pestañas de los mapas individuales
   shiny::observe({
     shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab1",
       session = shiny::getDefaultReactiveDomain()
@@ -227,6 +207,7 @@ server <- function(input, output, session) {
     )
   })
 
+  # Actualiza los tiempos de propagación en el simulador
   shiny::observe({
     shinyTime::updateTimeInput(
       session, "initialTimeSimulator",
@@ -238,48 +219,70 @@ server <- function(input, output, session) {
     )
   })
 
+  # Devuelve los satélites disponibles para el selector
   output$select_satelite <- shiny::renderUI({
     shiny::selectInput("satelite", p("Satélite"), choices = get_satelites())
   })
 
-
-  output$initialDateSat <-
-    shiny::renderText({
-      shiny::req(input$satelite)
+  # Inicializa la fecha inicial del satélite más reciente
+  output$initialDateSat <- shiny::renderText({
       if (input$data == "selectSats") {
-        test_TLEs[[strtoi(input$satelite)]]$dateTime
+        test_tles[[strtoi(input$satelite)]]$dateTime
       } else {
         if (!is.null(input$TLEFile)) {
-          get_more_recent_date()
+          sats <- read_file(input$TLEFile)
+          get_more_recent_date(sats)
         } else {
           "Sube tu fichero TLE"
         }
       }
-    })
+  })
 
+  # Guarda en la variable "metodos", la pestaña seleccionada en el menú
   shiny::observeEvent(input$metodos, {
     shiny::updateTabsetPanel(session, "metodos", selected = input$metodos)
   })
 
+  # Renderiza el mapa SGDP4
   output$SGDP4Map <- leaflet::renderLeaflet({
     if (!is.null(tabs_data())) {
       tabs_data()
     }
   })
 
+  # Renderiza el mapa HPOP
   output$HPOPMap <- leaflet::renderLeaflet({
     if (!is.null(tabs_data())) {
       tabs_data()
     }
   })
 
+  # Según la pestaña seleccionada, renderiza el mapa o los
+  # gráficos correspondientes cuando se pulsa el botón "Generar"
+  tabs_data <- shiny::eventReactive(input$generate, {
+    if (input$metodos == "SGDP4") {
+      render_sgdp4()
+    } else if (input$metodos == "HPOP") {
+      render_hpop()
+    } else if (input$metodos == "Elementos orbitales keplerianos") {
+      calculate_plots()
+    }
+  })
+
+  # Renderiza el mapa del simulador
   output$myMap <- leaflet::renderLeaflet({
     if (!is.null(map_data_simulator())) {
       map_data_simulator()
     }
   })
 
-  render_SGDP4 <- function() {
+  # Renderiza el mapa del simulador cuando se pulsa el botón "Generar mapa"
+  map_data_simulator <- shiny::eventReactive(input$generateSimulator, {
+    render_simulator()
+  })
+
+  # Genera el mapa de la pestaña SGDP4
+  render_sgdp4 <- function() {
     shiny::req(input$satelite)
     shiny::req(input$propagationTime)
     shiny::req(input$dimension)
@@ -287,6 +290,7 @@ server <- function(input, output, session) {
     shiny::req(input$method)
     shiny::req(input$colors)
 
+    # Oculta las pestañas de los mapas individuales
     shiny::hideTab("tabsetpanelSGDP4", "SGDP4Tab1",
       session = shiny::getDefaultReactiveDomain()
     )
@@ -318,27 +322,31 @@ server <- function(input, output, session) {
       session = shiny::getDefaultReactiveDomain()
     )
 
+    # Inicializa las variables
     sats <- list()
     differents <- FALSE
     method <- input$method
     type_colors <- input$colors
     is_negative <- FALSE
 
-    result_position_matrix_GCRF <- NULL
-    result_velocity_matrix_GCRF <- NULL
+    results_position_matrix_gcrf <- NULL
+    results_velocity_matrix_gcrf <- NULL
     orbital_elements <- NULL
 
-    if (!is.null(id_notification_HPOP_neg)) {
-      shiny::removeNotification(id_notification_HPOP_neg)
+    # Elimina las notificaciones por HPOP
+    if (!is.null(id_notification_hpop_neg)) {
+      shiny::removeNotification(id_notification_hpop_neg)
     }
-    id_notification_HPOP_neg <<- NULL
+    id_notification_hpop_neg <<- NULL
 
     if (input$data == "selectSats") {
-      sat <- test_TLEs[[strtoi(input$satelite)]]
+      # Si se selecciona un satélite, se obtiene su TLE
+      sat <- test_tles[[strtoi(input$satelite)]]
       sat <- c(sat, initialDateTime = sat$dateTime)
       sats[[1]] <- sat
     } else {
       if (!is.null(input$TLEFile)) {
+        # Si se sube un fichero, se obtienen los TLEs
         file <- input$TLEFile
         TLE_sats <- read_file(file)
         if (!is.null(names(TLE_sats))) {
@@ -346,14 +354,15 @@ server <- function(input, output, session) {
         } else {
           sats <- TLE_sats
         }
-        number_NORAD <- sats[[1]]$NORADcatalogNumber
+        number_norad <- sats[[1]]$NORADcatalogNumber
         for (i in seq_along(sats)) {
           sats[[i]] <- c(sats[[i]], initialDateTime = sats[[i]]$dateTime)
-          if (number_NORAD != sats[[i]]$NORADcatalogNumber) {
+          if (number_norad != sats[[i]]$NORADcatalogNumber) {
             differents <- TRUE
           }
         }
       } else {
+        # Si no se sube un fichero, se muestra un mapa vacío
         return(render_empty_map(input$dimension))
       }
     }
@@ -362,11 +371,14 @@ server <- function(input, output, session) {
       shiny::req(input$targetDateSat)
       shiny::req(input$targetTimeSat)
 
+      # Elimina las notificaciones por satélites diferentes
       if (!is.null(id_notification_differents)) {
         shiny::removeNotification(id_notification_differents)
       }
       id_notification_differents <<- NULL
 
+      # Si se selecciona propagar por fecha y hora absolutas,
+      # se obtiene la fecha y hora seleccionadas de destino
       target_time_sat <- substring(input$targetTimeSat, 12, 19)
       target_time_sat <-
         if (target_time_sat == "") {
@@ -379,28 +391,12 @@ server <- function(input, output, session) {
         target_time_sat,
         sep = " "
       )
-      geodetics_matrix_and_positions_two_weeks <-
-        calculate_geodetic_matrix_and_position_two_weeks(sats,
-          target_date = target_date,
-          method = method
-        )
 
-      geodetics_matrix <-
-        geodetics_matrix_and_positions_two_weeks[[1]]
-      results_position_matrix_GCRF <-
-        geodetics_matrix_and_positions_two_weeks[[2]]
-      results_velocity_matrix_GCRF <-
-        geodetics_matrix_and_positions_two_weeks[[3]]
-      orbital_elements <-
-        geodetics_matrix_and_positions_two_weeks[[4]]
-      positions_two_weeks <-
-        geodetics_matrix_and_positions_two_weeks[[5]]
-      positions_two_weeks_two_days <-
-        geodetics_matrix_and_positions_two_weeks[[6]]
-      is_negative <-
-        geodetics_matrix_and_positions_two_weeks[[7]]
+      # Se propagan los satélites
+      data <- calculate_data(sats, target_date = target_date, method = method)
     } else if (input$propagationTime == "minutes") {
       if (differents) {
+        # Si se suben TLEs de satélites diferentes, se muestra un mensaje
         if (!is.null(id_notification_differents)) {
           return()
         }
@@ -421,30 +417,26 @@ server <- function(input, output, session) {
       id_notification_differents <<- NULL
 
       shiny::req(input$propagationTimeSat)
-      geodetics_matrix_and_positions_two_weeks <-
-        calculate_geodetic_matrix_and_position_two_weeks(sats,
-          min = input$propagationTimeSat,
-          method = method
-        )
-
-      geodetics_matrix <-
-        geodetics_matrix_and_positions_two_weeks[[1]]
-      results_position_matrix_GCRF <-
-        geodetics_matrix_and_positions_two_weeks[[2]]
-      results_velocity_matrix_GCRF <-
-        geodetics_matrix_and_positions_two_weeks[[3]]
-      orbital_elements <-
-        geodetics_matrix_and_positions_two_weeks[[4]]
-      positions_two_weeks <-
-        geodetics_matrix_and_positions_two_weeks[[5]]
-      positions_two_weeks_two_days <-
-        geodetics_matrix_and_positions_two_weeks[[6]]
-      is_negative <-
-        geodetics_matrix_and_positions_two_weeks[[7]]
+      # Si se selecciona propagar por minutos relativos al epoch,
+      # se obtienen los minutos seleccionados y se propagan los satélites
+      data <- calculate_data(sats, min = input$propagationTimeSat,
+                              method = method)
     }
+    
+    # Se obtienen los datos de la propagación
+    geodetics_matrix <- data[[1]] # Matriz geodésica
+    results_position_matrix_gcrf <- data[[2]] # Matriz de posiciones
+    results_velocity_matrix_gcrf <- data[[3]] # Matriz de velocidades
+    orbital_elements <- data[[4]] # Elementos orbitales
+    positions_two_weeks <- data[[5]] # Punto de la trayectoria a dos semanas
+    positions_two_weeks_two_days <- data[[6]] # Punto de la trayectoria
+                                              # a dos semanas y dos días
+    is_negative <- data[[7]] # Indica si la propagación es hacia atrás
 
+    # Se calculan los marcadores para el mapa a través de la matriz geodésica
     geo_markers <- calculate_geo_markers(geodetics_matrix)
 
+    # Se obtienen los nombres de los satélites para la leyenda
     names <- NULL
     for (i in seq_along(sats)) {
       if (input$data == "fileSats") {
@@ -455,6 +447,7 @@ server <- function(input, output, session) {
     }
 
     if (length(sats) > 1) {
+      # Si se seleccionan varios satélites, se renderizan los mapas individuales
       for (i in seq_along(sats)) {
         local({
           my_i <- i
@@ -470,8 +463,8 @@ server <- function(input, output, session) {
           output[[paste0("SGDP4Map", my_i)]] <- leaflet::renderLeaflet({
             render_map_satellites(
               list(geo_markers[[my_i]]),
-              list(results_position_matrix_GCRF[[my_i]]),
-              list(results_velocity_matrix_GCRF[[my_i]]),
+              list(results_position_matrix_gcrf[[my_i]]),
+              list(results_velocity_matrix_gcrf[[my_i]]),
               list(orbital_elements[[my_i]]),
               input$dimension,
               list(names[[my_i]]),
@@ -486,11 +479,12 @@ server <- function(input, output, session) {
       }
     }
 
+    # Se renderiza el mapa
     return(
       render_map_satellites(
         geo_markers,
-        results_position_matrix_GCRF,
-        results_velocity_matrix_GCRF,
+        results_position_matrix_gcrf,
+        results_velocity_matrix_gcrf,
         orbital_elements,
         input$dimension,
         names,
@@ -503,13 +497,15 @@ server <- function(input, output, session) {
     )
   }
 
-  render_HPOP <- function() {
+  # Genera el mapa de la pestaña HPOP
+  render_hpop <- function() {
     shiny::req(input$satelite)
     shiny::req(input$propagationTime)
     shiny::req(input$dimension)
     shiny::req(input$data)
     shiny::req(input$colors)
 
+    # Oculta las pestañas de los mapas individuales
     shiny::hideTab("tabsetpanelHPOP", "HPOPTab1",
       session = shiny::getDefaultReactiveDomain()
     )
@@ -541,26 +537,31 @@ server <- function(input, output, session) {
       session = shiny::getDefaultReactiveDomain()
     )
 
+    # Elimina las notificaciones por satélites diferentes
     if (!is.null(id_notification_differents)) {
       shiny::removeNotification(id_notification_differents)
     }
     id_notification_differents <<- NULL
 
-    if (!is.null(id_notification_HPOP_neg)) {
-      shiny::removeNotification(id_notification_HPOP_neg)
+    # Elimina las notificaciones por HPOP
+    if (!is.null(id_notification_hpop_neg)) {
+      shiny::removeNotification(id_notification_hpop_neg)
     }
-    id_notification_HPOP_neg <<- NULL
+    id_notification_hpop_neg <<- NULL
 
+    # Inicializa las variables
     sats <- list()
     differents <- FALSE
     type_colors <- input$colors
 
     if (input$data == "selectSats") {
-      sat <- test_TLEs[[strtoi(input$satelite)]]
+      # Si se selecciona un satélite, se obtiene su TLE
+      sat <- test_tles[[strtoi(input$satelite)]]
       sat <- c(sat, initialDateTime = sat$dateTime)
       sats[[1]] <- sat
     } else {
       if (!is.null(input$TLEFile)) {
+        # Si se sube un fichero, se obtienen los TLEs
         file <- input$TLEFile
         TLE_sats <- read_file(file)
         if (!is.null(names(TLE_sats))) {
@@ -568,14 +569,15 @@ server <- function(input, output, session) {
         } else {
           sats <- TLE_sats
         }
-        number_NORAD <- sats[[1]]$NORADcatalogNumber
+        number_norad <- sats[[1]]$NORADcatalogNumber
         for (i in seq_along(sats)) {
           sats[[i]] <- c(sats[[i]], initialDateTime = sats[[i]]$dateTime)
-          if (number_NORAD != sats[[i]]$NORADcatalogNumber) {
+          if (number_norad != sats[[i]]$NORADcatalogNumber) {
             differents <- TRUE
           }
         }
       } else {
+        # Si no se sube un fichero, se muestra un mapa vacío
         return(render_empty_map(input$dimension))
       }
     }
@@ -584,6 +586,8 @@ server <- function(input, output, session) {
       shiny::req(input$targetDateSat)
       shiny::req(input$targetTimeSat)
 
+      # Si se selecciona propagar por fecha y hora absolutas,
+      # se obtiene la fecha y hora seleccionadas de destino
       target_time_sat <- substring(input$targetTimeSat, 12, 19)
       target_time_sat <-
         if (target_time_sat == "") {
@@ -597,12 +601,11 @@ server <- function(input, output, session) {
         sep = " "
       )
 
-      geodetics_matrix_and_positions_two_weeks_hpop <-
-        calculate_geodetic_matrix_and_position_two_weeks_hpop(sats,
-          target_date = target_date
-        )
+      # Se propagan los satélites
+      data_hpop <- calculate_data_hpop(sats, target_date = target_date)
     } else {
       if (differents) {
+        # Si se suben TLEs de satélites diferentes, se muestra un mensaje
         if (!is.null(id_notification_differents)) {
           return()
         }
@@ -624,17 +627,18 @@ server <- function(input, output, session) {
       id_notification_differents <<- NULL
 
       shiny::req(input$propagationTimeSat)
-      geodetics_matrix_and_positions_two_weeks_hpop <-
-        calculate_geodetic_matrix_and_position_two_weeks_hpop(sats,
-          min = input$propagationTimeSat
-        )
+
+      # Si se selecciona propagar por minutos relativos al epoch,
+      # se obtienen los minutos seleccionados y se propagan los satélites
+      data_hpop <- calculate_data_hpop(sats, min = input$propagationTimeSat)
     }
 
-    if (is.null(geodetics_matrix_and_positions_two_weeks_hpop)) {
-      if (!is.null(id_notification_HPOP_neg)) {
+    if (is.null(data_hpop)) {
+      # Si se selecciona propagar hacia atrás en el tiempo, se muestra un mensaje
+      if (!is.null(id_notification_hpop_neg)) {
         return()
       }
-      id_notification_HPOP_neg <<-
+      id_notification_hpop_neg <<-
         shiny::showNotification(
           paste(
             "No se puede propagar hacia atrás en el tiempo para el método HPOP"
@@ -644,21 +648,20 @@ server <- function(input, output, session) {
         )
     }
 
-    geodetics_matrix_hpop <-
-      geodetics_matrix_and_positions_two_weeks_hpop[[1]]
-    results_position_matrix_GCRF <-
-      geodetics_matrix_and_positions_two_weeks_hpop[[2]]
-    results_velocity_matrix_GCRF <-
-      geodetics_matrix_and_positions_two_weeks_hpop[[3]]
-    orbital_elements <-
-      geodetics_matrix_and_positions_two_weeks_hpop[[4]]
-    positions_two_weeks_hpop <-
-      geodetics_matrix_and_positions_two_weeks_hpop[[5]]
-    positions_two_weeks_two_days_hpop <-
-      geodetics_matrix_and_positions_two_weeks_hpop[[6]]
+    # Se obtienen los datos de la propagación
+    geodetics_matrix_hpop <- data_hpop[[1]] # Matriz geodésica
+    results_position_matrix_gcrf <- data_hpop[[2]] # Matriz de posiciones
+    results_velocity_matrix_gcrf <- data_hpop[[3]] # Matriz de velocidades
+    orbital_elements <- data_hpop[[4]] # Elementos orbitales
+    positions_two_weeks_hpop <- data_hpop[[5]] # Punto de la trayectoria
+                                               # a dos semanas
+    positions_two_weeks_two_days_hpop <- data_hpop[[6]] # Punto de la trayectoria
+                                                        # a dos semanas y dos días
 
+    # Se calculan los marcadores para el mapa a través de la matriz geodésica
     geo_markers <- calculate_geo_markers(geodetics_matrix_hpop)
 
+    # Se obtienen los nombres de los satélites para la leyenda
     names <- NULL
     for (i in seq_along(sats)) {
       if (input$data == "fileSats") {
@@ -669,6 +672,7 @@ server <- function(input, output, session) {
     }
 
     if (length(sats) > 1) {
+      # Si se seleccionan varios satélites, se renderizan los mapas individuales
       for (i in seq_along(sats)) {
         local({
           my_i <- i
@@ -684,8 +688,8 @@ server <- function(input, output, session) {
           output[[paste0("HPOPMap", my_i)]] <- leaflet::renderLeaflet({
             render_map_satellites(
               list(geo_markers[[my_i]]),
-              list(results_position_matrix_GCRF[[my_i]]),
-              list(results_velocity_matrix_GCRF[[my_i]]),
+              list(results_position_matrix_gcrf[[my_i]]),
+              list(results_velocity_matrix_gcrf[[my_i]]),
               list(orbital_elements[[my_i]]),
               input$dimension,
               list(names[[my_i]]),
@@ -699,10 +703,11 @@ server <- function(input, output, session) {
       }
     }
 
+    # Se renderiza el mapa
     render_map_satellites(
       geo_markers,
-      results_position_matrix_GCRF,
-      results_velocity_matrix_GCRF,
+      results_position_matrix_gcrf,
+      results_velocity_matrix_gcrf,
       orbital_elements,
       input$dimension,
       names,
@@ -713,6 +718,7 @@ server <- function(input, output, session) {
     )
   }
 
+  # Genera el mapa del simulador
   render_simulator <- function() {
     shiny::req(input$inclination)
     shiny::req(input$ascension)
@@ -724,26 +730,31 @@ server <- function(input, output, session) {
     shiny::req(input$propagationTimeSimulator)
     shiny::req(input$dimension)
 
+    # Inicializa las variables
     geodetics_matrix <- NULL
-    results_position_matrix_GCRF <- NULL
-    results_velocity_matrix_GCRF <- NULL
+    results_position_matrix_gcrf <- NULL
+    results_velocity_matrix_gcrf <- NULL
     orbital_elements <- NULL
 
+    # Elimina las notificaciones por satélites diferentes
     if (!is.null(id_notification_differents)) {
       shiny::removeNotification(id_notification_differents)
     }
     id_notification_differents <<- NULL
 
+    # Elimina las notificaciones por fallo en el fichero
     if (!is.null(id_notification_file)) {
       shiny::removeNotification(id_notification_file)
     }
     id_notification_file <<- NULL
 
-    if (!is.null(id_notification_HPOP_neg)) {
-      shiny::removeNotification(id_notification_HPOP_neg)
+    # Elimina las notificaciones por HPOP
+    if (!is.null(id_notification_hpop_neg)) {
+      shiny::removeNotification(id_notification_hpop_neg)
     }
-    id_notification_HPOP_neg <<- NULL
+    id_notification_hpop_neg <<- NULL
 
+    # Se obtienen los datos del satélite
     sat <- list(
       initialDateTime = paste(
         input$initialDateSimulator,
@@ -766,6 +777,8 @@ server <- function(input, output, session) {
       shiny::req(input$targetDateSimulator)
       shiny::req(input$targetTimeSimulator)
 
+      # Si se selecciona propagar por fecha y hora absolutas,
+      # se obtiene la fecha y hora seleccionadas de destino
       target_time_sat <-
         substring(input$targetTimeSimulator, 12, 19)
       target_time_sat <-
@@ -775,91 +788,76 @@ server <- function(input, output, session) {
           target_time_sat
         }
 
-      geodetics_matrix_and_positions_two_weeks <-
-        calculate_geodetic_matrix_and_position_two_weeks(sats,
+      # Se propaga el satélite
+      data <- calculate_data(sats,
           target_date = paste(input$targetDateSimulator,
             target_time_sat,
-            sep = " "
-          )
+            sep = " ")
         )
-
-      geodetics_matrix <-
-        geodetics_matrix_and_positions_two_weeks[[1]]
-      results_position_matrix_GCRF <-
-        geodetics_matrix_and_positions_two_weeks[[2]]
-      results_velocity_matrix_GCRF <-
-        geodetics_matrix_and_positions_two_weeks[[3]]
-      orbital_elements <-
-        geodetics_matrix_and_positions_two_weeks[[4]]
-      positions_two_weeks <-
-        geodetics_matrix_and_positions_two_weeks[[5]]
     } else if (input$propagationTimeSimulator == "minutes") {
       shiny::req(input$propagationTimeSatSimulator)
-      geodetics_matrix_and_positions_two_weeks <-
-        calculate_geodetic_matrix_and_position_two_weeks(sats,
-          min = input$propagationTimeSatSimulator
-        )
-
-      geodetics_matrix <-
-        geodetics_matrix_and_positions_two_weeks[[1]]
-      results_position_matrix_GCRF <-
-        geodetics_matrix_and_positions_two_weeks[[2]]
-      results_velocity_matrix_GCRF <-
-        geodetics_matrix_and_positions_two_weeks[[3]]
-      orbital_elements <-
-        geodetics_matrix_and_positions_two_weeks[[4]]
-      positions_two_weeks <-
-        geodetics_matrix_and_positions_two_weeks[[5]]
+      data <- calculate_data(sats, min = input$propagationTimeSatSimulator)
     }
+
+    # Se obtienen los datos de la propagación
+    geodetics_matrix <- data[[1]] # Matriz geodésica
+    results_position_matrix_gcrf <- data[[2]] # Matriz de posiciones
+    results_velocity_matrix_gcrf <- data[[3]] # Matriz de velocidades
+    orbital_elements <- data[[4]] # Elementos orbitales
+    positions_two_weeks <- data[[5]] # Punto de la trayectoria a dos semanas
+    positions_two_weeks_two_days <- data[[6]] # Punto de la trayectoria
+                                              # a dos semanas y dos días
+    is_negative <- data[[7]] # Indica si la propagación es hacia atrás
+
+    # Se calculan los marcadores para el mapa a través de la matriz geodésica
     geo_markers <- calculate_geo_markers(geodetics_matrix)
 
+    # Se renderiza el mapa
     render_map_satellites(
       geo_markers,
-      results_position_matrix_GCRF,
-      results_velocity_matrix_GCRF,
+      results_position_matrix_gcrf,
+      results_velocity_matrix_gcrf,
       orbital_elements,
       dimension = input$dimension,
       positions_two_weeks = positions_two_weeks,
+      positions_two_weeks_two_days = positions_two_weeks_two_days,
+      is_negative = is_negative,
       method = "Simulador"
     )
   }
 
-  tabs_data <- shiny::eventReactive(input$generate, {
-    if (input$metodos == "SGDP4") {
-      render_SGDP4()
-    } else if (input$metodos == "HPOP") {
-      render_HPOP()
-    } else if (input$metodos == "Elementos orbitales keplerianos") {
-      render_plots()
-    }
-  })
-
-  map_data_simulator <- shiny::eventReactive(input$generateSimulator, {
-    render_simulator()
-  })
-
-  render_plots <- function() {
+  # Calcula los elementos orbitales keplerianos para los gráficos
+  calculate_plots <- function() {
     shiny::req(input$satelite)
     shiny::req(input$propagationTime)
     shiny::req(input$dimension)
     shiny::req(input$data)
 
+    # Inicializa las variables
     sats <- list()
     differents <- FALSE
-
     orbital_elements <- NULL
 
-    if (!is.null(id_notification_HPOP_neg)) {
-      shiny::removeNotification(id_notification_HPOP_neg)
+    # Elimina las notificaciones por HPOP
+    if (!is.null(id_notification_hpop_neg)) {
+      shiny::removeNotification(id_notification_hpop_neg)
     }
-    id_notification_HPOP_neg <<- NULL
+    id_notification_hpop_neg <<- NULL
+
+    # Elimina las notificaciones por satélites diferentes
+    if (!is.null(id_notification_differents)) {
+      shiny::removeNotification(id_notification_differents)
+    }
+    id_notification_differents <<- NULL
 
     if (input$data == "selectSats") {
-      sat <- test_TLEs[[strtoi(input$satelite)]]
+      # Si se selecciona un satélite, se obtiene su TLE
+      sat <- test_tles[[strtoi(input$satelite)]]
       sat <- c(sat, initialDateTime = sat$dateTime)
       sats[[1]] <- sat
     } else {
       if (!is.null(input$TLEFile)) {
+        # Si se sube un fichero, se obtienen los TLEs
         file <- input$TLEFile
         TLE_sats <- read_file(file)
         if (!is.null(names(TLE_sats))) {
@@ -867,14 +865,15 @@ server <- function(input, output, session) {
         } else {
           sats <- TLE_sats
         }
-        number_NORAD <- sats[[1]]$NORADcatalogNumber
+        number_norad <- sats[[1]]$NORADcatalogNumber
         for (i in seq_along(sats)) {
           sats[[i]] <- c(sats[[i]], initialDateTime = sats[[i]]$dateTime)
-          if (number_NORAD != sats[[i]]$NORADcatalogNumber) {
+          if (number_norad != sats[[i]]$NORADcatalogNumber) {
             differents <- TRUE
           }
         }
       } else {
+        # Si no se sube un fichero, se devuelve NULL
         return(orbital_elements)
       }
     }
@@ -883,11 +882,8 @@ server <- function(input, output, session) {
       shiny::req(input$targetDateSat)
       shiny::req(input$targetTimeSat)
 
-      if (!is.null(id_notification_differents)) {
-        shiny::removeNotification(id_notification_differents)
-      }
-      id_notification_differents <<- NULL
-
+      # Si se selecciona propagar por fecha y hora absolutas,
+      # se obtiene la fecha y hora seleccionadas de destino
       target_time_sat <- substring(input$targetTimeSat, 12, 19)
       target_time_sat <-
         if (target_time_sat == "") {
@@ -900,15 +896,12 @@ server <- function(input, output, session) {
         target_time_sat,
         sep = " "
       )
-      geodetics_matrix_and_positions_two_weeks <-
-        calculate_geodetic_matrix_and_position_two_weeks(sats,
-          target_date = target_date
-        )
 
-      orbital_elements <-
-        geodetics_matrix_and_positions_two_weeks[[4]]
+      # Se propagan los satélites
+      data <- calculate_data(sats, target_date = target_date)
     } else if (input$propagationTime == "minutes") {
       if (differents) {
+        # Si se suben TLEs de satélites diferentes, se muestra un mensaje
         if (!is.null(id_notification_differents)) {
           return()
         }
@@ -923,20 +916,17 @@ server <- function(input, output, session) {
 
         return(orbital_elements)
       }
-      if (!is.null(id_notification_differents)) {
-        shiny::removeNotification(id_notification_differents)
-      }
-      id_notification_differents <<- NULL
 
       shiny::req(input$propagationTimeSat)
-      geodetics_matrix_and_positions_two_weeks <-
-        calculate_geodetic_matrix_and_position_two_weeks(sats,
-          min = input$propagationTimeSat
-        )
-      orbital_elements <-
-        geodetics_matrix_and_positions_two_weeks[[4]]
-    }
 
+      # Si se selecciona propagar por minutos relativos al epoch,
+      # se obtienen los minutos seleccionados y se propagan los satélites
+      data <- calculate_data(sats, min = input$propagationTimeSat)
+      
+    }
+    orbital_elements <- data[[4]] # Elementos orbitales
+
+    # Se obtienen los nombres de los satélites para la leyenda
     names <- NULL
     for (i in seq_along(sats)) {
       if (input$data == "fileSats") {
@@ -946,9 +936,11 @@ server <- function(input, output, session) {
       }
     }
 
+    # Se devuelven los elementos orbitales y los nombres de los satélites
     return(list(orbital_elements, names))
   }
 
+  # Genera el gráfico de la excentricidad
   output$plot1 <- plotly::renderPlotly({
     if (!("leaflet" %in% class(tabs_data()))) {
       orbital_elements <- tabs_data()[[1]]
@@ -975,6 +967,7 @@ server <- function(input, output, session) {
     }
   })
 
+  # Genera el gráfico de la inclinación
   output$plot2 <- plotly::renderPlotly({
     if (!("leaflet" %in% class(tabs_data()))) {
       orbital_elements <- tabs_data()[[1]]
@@ -1001,6 +994,7 @@ server <- function(input, output, session) {
     }
   })
 
+  # Genera el gráfico de la anomalía media
   output$plot3 <- plotly::renderPlotly({
     if (!("leaflet" %in% class(tabs_data()))) {
       orbital_elements <- tabs_data()[[1]]
@@ -1027,6 +1021,7 @@ server <- function(input, output, session) {
     }
   })
 
+  # Genera el gráfico del argumento del perigeo
   output$plot4 <- plotly::renderPlotly({
     if (!("leaflet" %in% class(tabs_data()))) {
       orbital_elements <- tabs_data()[[1]]
@@ -1053,6 +1048,7 @@ server <- function(input, output, session) {
     }
   })
 
+  # Genera el gráfico de la ascención recta
   output$plot5 <- plotly::renderPlotly({
     if (!("leaflet" %in% class(tabs_data()))) {
       orbital_elements <- tabs_data()[[1]]
