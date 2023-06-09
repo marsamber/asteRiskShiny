@@ -1,0 +1,39 @@
+Enlace al proyecto desplegado:
+https://j5ul7u-marta-sb.shinyapps.io/proyectoasteroides/
+
+Enlace al proyecto en GitHub:
+https://github.com/marsamber/asteRiskShiny
+
+En el caso de querer bajarse el proyecto desde GitHub y ejecutarlo, hay que tener en cuenta que se deberá tener R instalado en el equipo y mediante el comando de R 'install.packages(package)', tendrá que instalar la siguiente lista de paquetes:
+install.packages(shiny)
+install.packages(asteRisk)
+install.packages('asteRiskData', repos='https://rafael-ayala.github.io/drat/')
+install.packages(shinycssloaders)
+install.packages(leaflet)
+install.packages(leaflet.extras2)
+install.packages(htmltools)
+install.packages(shinyTime)
+install.packages(randomcoloR)
+install.packages(dplyr)
+install.packages(grDevices)
+install.packages(shinyjs)
+install.packages(colormod)
+install.packages(plotly)
+
+Tras instalarse con éxito todos los paquetes, deberá ejecutar en la terminal R dentro del proyecto lo siguiente:
+library(shiny)
+library(asteRisk)
+library(asteRiskData)
+library(shinycssloaders)
+library(leaflet)
+library(leaflet.extras2)
+library(htmltools)
+library(shinyTime)
+library(randomcoloR)
+library(dplyr)
+library(grDevices)
+library(shinyjs)
+library(colormod)
+library(plotly)
+
+y finalmente ejecutar la aplicación con 'runApp()', en la carpeta raíz del proyecto.
